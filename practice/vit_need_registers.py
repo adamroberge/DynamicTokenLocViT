@@ -179,7 +179,7 @@ class Attention(nn.Module):
                 h=self.heads
             ), qkv)
 
-        # #normalize key and values, known QK Normalization
+        # normalize key and values, known QK Normalization
         k = self.norm_k(k)
         v = self.norm_v(v)
 
