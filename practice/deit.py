@@ -97,6 +97,33 @@ class Block(nn.Module):
 class Layer_scale_init_Block(nn.Module):
     # taken from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
     # with slight modifications
+    '''
+    Layer_scale_init_Block
+
+    Architecture:
+    -------------
+    1. LayerNorm
+    2. Attention
+    3. DropPath (optional)
+    4. Scale (gamma_1)
+    5. LayerNorm
+    6. MLP (Multilayer Perceptron)
+    7. DropPath (optional)
+    8. Scale (gamma_2)
+
+    Purpose:
+    --------
+    1. Normalize the input tensor.
+    2. Apply the attention mechanism to the normalized tensor.
+    3. Optionally apply stochastic depth (DropPath) for regularization.
+    4. Apply learnable scaling factor (gamma_1) to the output of the attention mechanism.
+    5. Normalize the tensor after the attention layer.
+    6. Apply an MLP to the normalized tensor to introduce non-linearity.
+    7. Optionally apply stochastic depth (DropPath) after the MLP for regularization.
+    8. Apply learnable scaling factor (gamma_2) to the output of the MLP.
+
+    '''
+
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, Attention_block=Attention, Mlp_block=Mlp, init_values=1e-4):
         super().__init__()
@@ -124,6 +151,43 @@ class Layer_scale_init_Block(nn.Module):
 class Layer_scale_init_Block_paralx2(nn.Module):
     # taken from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
     # with slight modifications
+    '''
+    Layer_scale_init_Block_paralx2
+
+    Architecture:
+    -------------
+    1. LayerNorm (norm1)
+    2. Attention (attn)
+    3. DropPath (optional, applied to attn)
+    4. LayerNorm (norm11)
+    5. Attention (attn1)
+    6. DropPath (optional, applied to attn1)
+    7. Scale (gamma_1 and gamma_1_1)
+    8. Residual Connection (combining scaled attention outputs)
+    9. LayerNorm (norm2)
+    10. MLP (mlp)
+    11. DropPath (optional, applied to mlp)
+    12. LayerNorm (norm21)
+    13. MLP (mlp1)
+    14. DropPath (optional, applied to mlp1)
+    15. Scale (gamma_2 and gamma_2_1)
+    16. Residual Connection (combining scaled MLP outputs)
+
+    Purpose:
+    --------
+    1. Normalize the input tensor (norm1 and norm11).
+    2. Apply the attention mechanism (attn and attn1) to the normalized tensors.
+    3. Optionally apply stochastic depth (DropPath) for regularization after attention mechanisms.
+    4. Apply learnable scaling factors (gamma_1 and gamma_1_1) to the output of the attention mechanisms.
+    5. Combine the scaled attention outputs using residual connections.
+    6. Normalize the tensor after the attention layer (norm2 and norm21).
+    7. Apply an MLP to the normalized tensor to introduce non-linearity (mlp and mlp1).
+    8. Optionally apply stochastic depth (DropPath) for regularization after MLPs.
+    9. Apply learnable scaling factors (gamma_2 and gamma_2_1) to the output of the MLPs.
+    10. Combine the scaled MLP outputs using residual connections.
+
+    '''
+
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, Attention_block=Attention, Mlp_block=Mlp, init_values=1e-4):
         super().__init__()
