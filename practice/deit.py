@@ -51,6 +51,29 @@ class Attention(nn.Module):
 
 class Block(nn.Module):
     # taken from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
+    ''''
+    Block
+
+    Architecture:
+    -------------
+    1. LayerNorm
+    2. Attention
+    3. DropPath (optional)
+    4. LayerNorm
+    5. MLP (Multilayer Perceptron)
+    6. DropPath (optional)
+
+    Purpose:
+    --------
+    1. Normalize the input tensor.
+    2. Apply the attention mechanism to the normalized tensor.
+    3. Optionally apply stochastic depth (DropPath) for regularization.
+    4. Normalize the tensor after the attention layer.
+    5. Apply an MLP to the normalized tensor to introduce non-linearity.
+    6. Optionally apply stochastic depth (DropPath) after the MLP for regularization.
+
+    '''
+
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, Attention_block=Attention, Mlp_block=Mlp, init_values=1e-4):
         super().__init__()
