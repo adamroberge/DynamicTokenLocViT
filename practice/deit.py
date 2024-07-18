@@ -29,16 +29,22 @@ class Attention(nn.Module):
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C //
                                   self.num_heads).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv[0], qkv[1], qkv[2]
+        # Dimension after permute: (3, B, self.num_heads, N, C // self.num_heads)
+        q, k, v = qkv[0], qkv[1], qkv[2]  # (B, num_heads, N, head_dim)
 
-        q = q * self.scale
+        q = q * self.scale  # q / sqrt(d) where d is head_dim
 
-        attn = (q @ k.transpose(-2, -1))
+        attn = (q @ k.transpose(-2, -1))  # (B, num_heads, N, N)
+        # softmax along the last dimension, which is the sequence length dim (N) a.k.a number of tokens
         attn = attn.softmax(dim=-1)
+        # dropout layer applied to the attention weights.
         attn = self.attn_drop(attn)
 
+        # (B, num_heads, N, head_dim) -> (B, N, num_heads, head_dim) -> (B, N, C)
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        # applies a linear transformation to each token, resulting in a tensor of the same shape (B, N, C).
         x = self.proj(x)
+        # applies dropout to the output of the linear projection.
         x = self.proj_drop(x)
         return x
 
