@@ -416,20 +416,82 @@ class VitRGTS(nn.Module):
             b=batch
         )
 
-        # pack cls token and register token
-        x, ps = pack([x, r], 'b * d ')
+        # repeat cls token
+        cls_tokens = repeat(
+            self.cls_token,
+            '1 1 d -> b 1 d',
+            b=batch
+        )
+
+        # pack cls token, patch tokens, and register tokens
+        x, ps = pack([cls_tokens, x, r], 'b * d')
 
         # apply transformers
         x = self.transformer(x)
 
-        # unpack cls token and register token
+        # unpack cls token, patch tokens, and register tokens
         x, _ = unpack(x, ps, 'b * d')
 
-        # apply mean
-        x = x.mean(dim=1)
+        if self.pool == 'cls':
+            # if using cls token pooling, take the cls token representation
+            x = x[:, 0]  # the CLS token is the first token in the sequence
+        else:
+            # apply mean pooling
+            x = x.mean(dim=1)
 
         # to latent layer
         x = self.to_latent(x)
 
         # linear head
         return self.linear_head(x)
+
+
+# Testing code
+def test_vitrgts():
+    # Define model parameters
+    image_size = (224, 224)
+    patch_size = (16, 16)
+    num_classes = 10
+    dim = 128
+    depth = 6
+    heads = 8
+    mlp_dim = 256
+    num_register_tokens = 4
+    pool = 'cls'
+    channels = 3
+    dim_head = 64
+    dropout = 0.1
+    emb_dropout = 0.1
+
+    # Create a VitRGTS model instance
+    model = VitRGTS(
+        image_size=image_size,
+        patch_size=patch_size,
+        num_classes=num_classes,
+        dim=dim,
+        depth=depth,
+        heads=heads,
+        mlp_dim=mlp_dim,
+        num_register_tokens=num_register_tokens,
+        pool=pool,
+        channels=channels,
+        dim_head=dim_head,
+        dropout=dropout,
+        emb_dropout=emb_dropout
+    )
+
+    # Create a dummy input tensor
+    img = torch.randn(1, channels, *image_size)
+
+    # Run the forward pass
+    output = model(img)
+
+    # Check output dimensions
+    assert output.shape == (
+        1, num_classes), f"Output dimension mismatch: {output.shape}"
+
+    print("All tests passed.")
+
+
+# Run the test
+test_vitrgts()
