@@ -356,55 +356,8 @@ transform = transforms.Compose([
                          std=[0.229, 0.224, 0.225]),
 ])
 
-# Path to the image
-image_path = "img/cat.jpg"
 
-# Load and preprocess the image
-image = load_image(image_path, transform)
-
-# Define the model parameters
-model = vit_register_end(
-    img_size=224,
-    patch_size=1,
-    in_chans=3,
-    num_classes=10,
-    embed_dim=768,
-    depth=12,
-    num_heads=12,
-    mlp_ratio=4.0,
-    qkv_bias=True,
-    qk_scale=None,
-    drop_rate=0.1,
-    attn_drop_rate=0.1,
-    drop_path_rate=0.1,
-    num_register_tokens=4
-)
-
-# # Move the model and image to GPU if available
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# model = model.to(device)
-# image = image.to(device)
-
-# # Pass the image through the model
-# model.eval()  # Set the model to evaluation mode
-# with torch.no_grad():
-#     x_cls, attn_weights = model(image)
-
-# # Compute the L2 norm of the attention weights
-# attn_l2 = torch.norm(attn_weights, p=2, dim=-
-#                      1).mean(dim=1).squeeze(0).detach().cpu().numpy()
-
-# # Visualize the attention map
-# plt.figure(figsize=(10, 8))
-# plt.imshow(attn_l2, cmap='viridis')
-# plt.colorbar()
-# plt.title("Attention Map L2 Norm")
-# plt.xlabel("Token Position")
-# plt.ylabel("Attention Head")
-# plt.show()
-
-
-# Define your model parameters
+# Define model parameters
 img_size = 224
 patch_size = 16
 in_chans = 3
@@ -439,4 +392,68 @@ model = vit_register_end(
 )
 
 # Print the model summary
-summary(model, (in_chans, img_size, img_size))
+# summary(model, (in_chans, img_size, img_size))
+
+
+# Test code to check if the sizes and dimensions have no error and visualize attention
+def test_vit_register_models():
+    # Define model parameters
+    img_size = 224
+    patch_size = 16
+    in_chans = 3
+    num_classes = 10
+    embed_dim = 768
+    depth = 12
+    num_heads = 12
+    mlp_ratio = 4.0
+    qkv_bias = True
+    qk_scale = None
+    drop_rate = 0.1
+    attn_drop_rate = 0.1
+    drop_path_rate = 0.1
+    num_register_tokens = 4
+
+    # Create an instance of the model
+    model = vit_register_end(
+        img_size=img_size,
+        patch_size=patch_size,
+        in_chans=in_chans,
+        num_classes=num_classes,
+        embed_dim=embed_dim,
+        depth=depth,
+        num_heads=num_heads,
+        mlp_ratio=mlp_ratio,
+        qkv_bias=qkv_bias,
+        qk_scale=qk_scale,
+        drop_rate=drop_rate,
+        attn_drop_rate=attn_drop_rate,
+        drop_path_rate=drop_path_rate,
+        num_register_tokens=num_register_tokens
+    )
+
+    # Create a random input tensor with the appropriate shape
+    batch_size = 2  # Example batch size
+    x = torch.randn(batch_size, in_chans, img_size, img_size)
+
+    # Pass the input through the model
+    x_cls, attn_weights = model(x)
+
+    # Check the final output dimensions
+    assert x_cls.shape == (
+        batch_size, num_classes), f"Final output shape mismatch: {x_cls.shape}"
+
+    print("All checks passed successfully!")
+
+    # Compute the L2 norm of the attention weights
+    attn_l2 = torch.norm(attn_weights, p=2, dim=-
+                         1).mean(dim=1).squeeze(0).detach().cpu().numpy()
+
+    # Visualize the attention map
+    plt.imshow(attn_l2, cmap='viridis')
+    plt.colorbar()
+    plt.title("Attention Map L2 Norm")
+    plt.show()
+
+
+# Run the test
+test_vit_register_models()
