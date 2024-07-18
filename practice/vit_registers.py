@@ -385,3 +385,65 @@ class vit_register_models(nn.Module):
         x_cls = self.head(x_cls)
 
         return x_cls  # Return the final class scores
+
+
+def test_vit_register_models():
+    # Define model parameters
+    img_size = 224
+    patch_size = 16
+    in_chans = 3
+    num_classes = 10
+    embed_dim = 768
+    depth = 12
+    num_heads = 12
+    mlp_ratio = 4.0
+    qkv_bias = True
+    qk_scale = None
+    drop_rate = 0.1
+    attn_drop_rate = 0.1
+    drop_path_rate = 0.1
+    num_register_tokens = 8
+
+    # Create an instance of the model
+    model = vit_register_models(
+        img_size=img_size,
+        patch_size=patch_size,
+        in_chans=in_chans,
+        num_classes=num_classes,
+        embed_dim=embed_dim,
+        depth=depth,
+        num_heads=num_heads,
+        mlp_ratio=mlp_ratio,
+        qkv_bias=qkv_bias,
+        qk_scale=qk_scale,
+        drop_rate=drop_rate,
+        attn_drop_rate=attn_drop_rate,
+        drop_path_rate=drop_path_rate,
+        num_register_tokens=num_register_tokens
+    )
+
+    # Create a random input tensor with the appropriate shape
+    batch_size = 16  # Example batch size
+    x = torch.randn(batch_size, in_chans, img_size, img_size)
+
+    # Pass the input through the model
+    x_cls, x_reg = model.forward_features(x)
+
+    # Check the dimensions of the outputs
+    assert x_cls.shape == (
+        batch_size, embed_dim), f"Class token output shape mismatch: {x_cls.shape}"
+    assert x_reg.shape == (batch_size, num_register_tokens,
+                           embed_dim), f"Register tokens output shape mismatch: {x_reg.shape}"
+
+    # Pass the class token through the head
+    x_cls_out = model.forward(x)
+
+    # Check the final output dimensions
+    assert x_cls_out.shape == (
+        batch_size, num_classes), f"Final output shape mismatch: {x_cls_out.shape}"
+
+    print("All checks passed successfully!")
+
+
+# Run the test
+test_vit_register_models()
