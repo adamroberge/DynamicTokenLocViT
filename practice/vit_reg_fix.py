@@ -425,8 +425,12 @@ class VitRGTS(nn.Module):
         # unpack cls token and register token
         x, _ = unpack(x, ps, 'b * d')
 
-        # apply mean
-        x = x.mean(dim=1)
+        if self.pool == 'cls':
+            # if using cls token pooling, take the cls token representation
+            x = x[:, 0]  # the CLS token is the first token in the sequence
+        else:
+            # apply mean pooling
+            x = x.mean(dim=1)
 
         # to latent layer
         x = self.to_latent(x)
