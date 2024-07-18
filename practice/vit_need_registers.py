@@ -417,7 +417,7 @@ class VitRGTS(nn.Module):
         )
 
         # pack cls token and register token
-        x, ps = pack([x, r], 'b * d ')
+        x, ps = pack([x, r], 'b * d')
 
         # apply transformers
         x = self.transformer(x)
