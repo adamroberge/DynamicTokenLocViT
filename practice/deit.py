@@ -227,6 +227,39 @@ class Layer_scale_init_Block_paralx2(nn.Module):
 class Block_paralx2(nn.Module):
     # taken from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
     # with slight modifications
+    '''
+    Block_paralx2
+
+    Architecture:
+    -------------
+    1. LayerNorm (norm1)
+    2. Attention (attn)
+    3. DropPath (optional, applied to attn)
+    4. LayerNorm (norm11)
+    5. Attention (attn1)
+    6. DropPath (optional, applied to attn1)
+    7. Residual Connection (combining attention outputs)
+    8. LayerNorm (norm2)
+    9. MLP (mlp)
+    10. DropPath (optional, applied to mlp)
+    11. LayerNorm (norm21)
+    12. MLP (mlp1)
+    13. DropPath (optional, applied to mlp1)
+    14. Residual Connection (combining MLP outputs)
+
+    Purpose:
+    --------
+    1. Normalize the input tensor (norm1 and norm11).
+    2. Apply the attention mechanism (attn and attn1) to the normalized tensors.
+    3. Optionally apply stochastic depth (DropPath) for regularization after attention mechanisms.
+    4. Combine the outputs of the attention mechanisms using residual connections.
+    5. Normalize the tensor after the attention layers (norm2 and norm21).
+    6. Apply an MLP to the normalized tensor to introduce non-linearity (mlp and mlp1).
+    7. Optionally apply stochastic depth (DropPath) for regularization after MLPs.
+    8. Combine the outputs of the MLPs using residual connections.
+
+    '''
+
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, Attention_block=Attention, Mlp_block=Mlp, init_values=1e-4):
         super().__init__()
@@ -261,6 +294,26 @@ class hMLP_stem(nn.Module):
     with slight modifications
     """
 
+    '''
+    Architecture:
+    -------------
+    1. Convert input image to patches
+    2. Apply Conv2d (4x4 kernel, stride 4) to reduce spatial dimensions
+    3. Apply normalization (BatchNorm) and GELU activation
+    4. Apply Conv2d (2x2 kernel, stride 2) to further reduce dimensions
+    5. Apply normalization (BatchNorm) and GELU activation
+    6. Apply Conv2d (2x2 kernel, stride 2) to get desired embedding dimension
+    7. Apply normalization (BatchNorm)
+
+    Purpose:
+    --------
+    1. Transform input images into a sequence of patches
+    2. Reduce spatial dimensions while increasing the channel dimensions
+    3. Normalize and apply non-linearity to aid in training
+    4. Flatten and transpose the tensor to prepare it for transformer layers
+
+    '''
+
     def __init__(self, img_size=224,  patch_size=16, in_chans=3, embed_dim=768, norm_layer=nn.SyncBatchNorm):
         super().__init__()
         img_size = to_2tuple(img_size)
@@ -293,6 +346,29 @@ class vit_models(nn.Module):
     taken from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
     with slight modifications
     """
+
+    '''
+    Architecture:
+    -------------
+    1. Patch Embedding Layer
+    2. Position Embedding
+    3. Class Token Initialization
+    4. Stochastic Depth DropPath Rates
+    5. Transformer Encoder Blocks
+    6. Layer Normalization
+    7. Classification Head
+
+    Purpose:
+    --------
+    1. Embed input image into patch tokens
+    2. Add positional encoding to maintain spatial information
+    3. Introduce a class token to aggregate information for classification
+    4. Apply stochastic depth to each Transformer block for regularization
+    5. Normalize and transform tokens through multiple Transformer blocks
+    6. Normalize the final token representation
+    7. Map the output to the desired number of classes
+
+    '''
 
     def __init__(self, img_size=224,  patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
                  num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
@@ -361,31 +437,44 @@ class vit_models(nn.Module):
             self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
     def forward_features(self, x):
-        B = x.shape[0]
+        B = x.shape[0]  # Get the batch size from the input tensor
+        # Apply patch embedding to the input image, converting it to a sequence of patch tokens
         x = self.patch_embed(x)
 
+        # Expand the class token to match the batch size
         cls_tokens = self.cls_token.expand(B, -1, -1)
 
+        # Add positional embeddings to the patch tokens to retain spatial information
         x = x + self.pos_embed
 
+        # Concatenate the class token to the beginning of the token sequence
         x = torch.cat((cls_tokens, x), dim=1)
 
+        # Pass the token sequence through each transformer block
         for i, blk in enumerate(self.blocks):
             x = blk(x)
 
+        # Apply layer normalization to the output of the last transformer block
         x = self.norm(x)
+
+        # Return only the class token's representation for classification
         return x[:, 0]
 
     def forward(self, x):
-
+        # Compute the forward pass through the transformer to get the feature representation
         x = self.forward_features(x)
 
+        # Apply dropout to the feature representation if a dropout rate is specified
         if self.dropout_rate:
             x = F.dropout(x, p=float(self.dropout_rate),
                           training=self.training)
+
+        # Pass the feature representation through the classification head to get the final output
         x = self.head(x)
 
+        # Return the final class scores
         return x
+
 
 # DeiT III: Revenge of the ViT (https://arxiv.org/abs/2204.07118)
 
