@@ -269,3 +269,119 @@ class vit_models(nn.Module):
 
         # Return the final class scores
         return x
+
+
+class vit_register_models(nn.Module):
+    def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
+                 num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
+                 drop_path_rate=0., norm_layer=nn.LayerNorm, global_pool=None,
+                 block_layers=Block, Patch_layer=PatchEmbed, act_layer=nn.GELU,
+                 Attention_block=Attention, Mlp_block=Mlp, dpr_constant=True, init_scale=1e-4,
+                 mlp_ratio_clstk=4.0, num_register_tokens=0, **kwargs):
+        super().__init__()
+
+        self.dropout_rate = drop_rate
+
+        self.num_classes = num_classes
+        self.num_features = self.embed_dim = embed_dim
+
+        self.patch_embed = Patch_layer(
+            img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
+        num_patches = self.patch_embed.num_patches
+
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.pos_embed = nn.Parameter(torch.zeros(
+            1, num_patches + 1 + num_register_tokens, embed_dim))  # Updated
+        self.num_register_tokens = num_register_tokens
+        if num_register_tokens > 0:
+            self.register_tokens = nn.Parameter(
+                torch.zeros(1, num_register_tokens, embed_dim))
+        else:
+            self.register_tokens = None
+
+        dpr = [drop_path_rate for i in range(depth)]
+        self.blocks = nn.ModuleList([
+            block_layers(
+                dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
+                drop=0.0, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer,
+                act_layer=act_layer, Attention_block=Attention_block, Mlp_block=Mlp_block, init_values=init_scale)
+            for i in range(depth)])
+
+        self.norm = norm_layer(embed_dim)
+
+        self.feature_info = [
+            dict(num_chs=embed_dim, reduction=0, module='head')]
+        self.head = nn.Linear(
+            embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+
+        trunc_normal_(self.pos_embed, std=.02)
+        trunc_normal_(self.cls_token, std=.02)
+        if self.register_tokens is not None:
+            trunc_normal_(self.register_tokens, std=.02)
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+
+    @torch.jit.ignore
+    def no_weight_decay(self):
+        return {'pos_embed', 'cls_token'}
+
+    def get_classifier(self):
+        return self.head
+
+    def get_num_layers(self):
+        return len(self.blocks)
+
+    def reset_classifier(self, num_classes, global_pool=''):
+        self.num_classes = num_classes
+        self.head = nn.Linear(
+            self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+
+    def forward_features(self, x):
+        B = x.shape[0]  # Get the batch size from the input tensor
+        x = self.patch_embed(x)  # Apply patch embedding to the input image
+
+        # Expand the class token to match the batch size
+        cls_tokens = self.cls_token.expand(B, -1, -1)
+
+        # Add positional embeddings to the patch tokens
+        x = x + self.pos_embed[:, 1 + self.num_register_tokens:, :]
+
+        if self.register_tokens is not None:
+            # Expand register tokens to match the batch size
+            register_tokens = self.register_tokens.expand(B, -1, -1)
+            # Concatenate cls token, register tokens, and patch tokens
+            x = torch.cat((cls_tokens, register_tokens, x), dim=1)
+        else:
+            # Concatenate cls token and patch tokens
+            x = torch.cat((cls_tokens, x), dim=1)
+
+        # Pass the token sequence through each transformer block
+        for i, blk in enumerate(self.blocks):
+            x = blk(x)
+
+        # Apply layer normalization to the output of the last transformer block
+        x = self.norm(x)
+
+        # Return the class token and register tokens
+        return x[:, 0], x[:, 1:1 + self.num_register_tokens]
+
+    def forward(self, x):
+        # Compute the forward pass through the transformer
+        x_cls, x_reg = self.forward_features(x)
+
+        if self.dropout_rate:
+            x_cls = F.dropout(x_cls, p=float(
+                self.dropout_rate), training=self.training)
+
+        # Pass the class token representation through the classification head
+        x_cls = self.head(x_cls)
+
+        return x_cls  # Return the final class scores
