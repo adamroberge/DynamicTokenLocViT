@@ -433,3 +433,55 @@ class VitRGTS(nn.Module):
 
         # linear head
         return self.linear_head(x)
+
+# Testing code
+
+
+def test_vitrgts():
+    # Define model parameters
+    image_size = (224, 224)
+    patch_size = (16, 16)
+    num_classes = 10
+    dim = 128
+    depth = 6
+    heads = 8
+    mlp_dim = 256
+    num_register_tokens = 4
+    pool = 'cls'
+    channels = 3
+    dim_head = 64
+    dropout = 0.1
+    emb_dropout = 0.1
+
+    # Create a VitRGTS model instance
+    model = VitRGTS(
+        image_size=image_size,
+        patch_size=patch_size,
+        num_classes=num_classes,
+        dim=dim,
+        depth=depth,
+        heads=heads,
+        mlp_dim=mlp_dim,
+        num_register_tokens=num_register_tokens,
+        pool=pool,
+        channels=channels,
+        dim_head=dim_head,
+        dropout=dropout,
+        emb_dropout=emb_dropout
+    )
+
+    # Create a dummy input tensor
+    img = torch.randn(1, channels, *image_size)
+
+    # Run the forward pass
+    output = model(img)
+
+    # Check output dimensions
+    assert output.shape == (
+        1, num_classes), f"Output dimension mismatch: {output.shape}"
+
+    print("All tests passed.")
+
+
+# Run the test
+test_vitrgts()
