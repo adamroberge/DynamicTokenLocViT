@@ -519,10 +519,11 @@ class vit_register_end(nn.Module):
         # Add positional embeddings to the patch tokens
         x = x + self.pos_embed[:, self.num_register_tokens:, :]
 
+        # self.register_tokens: (1, num_register_tokens, embed_dim)
         if self.register_tokens is not None:
-            # Expand register tokens to match the batch size
+            # Expand register tokens to match the batch size: (B, num_register_tokens, embed_dim)
             register_tokens = self.register_tokens.expand(B, -1, -1)
-            # Concatenate register tokens and patch tokens
+            # Concatenate register tokens and patch tokens: (B, num_register_tokens + num_patches, embed_dim)
             x = torch.cat((register_tokens, x), dim=1)
 
         # Pass the token sequence through each transformer block
@@ -546,7 +547,6 @@ class vit_register_end(nn.Module):
         cls_tokens = self.class_attention_block(x, cls_tokens)
 
         # Extract the class token
-        # Ensure proper dimension after attention
         x_cls = cls_tokens.squeeze(1)
         x_regs = x[:, :self.num_register_tokens]
 
