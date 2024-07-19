@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from functools import partial
+from torchsummary import summary
 
 from timm.models.vision_transformer import Mlp, PatchEmbed, _cfg
 
@@ -318,8 +319,11 @@ class vit_register_dynamic(nn.Module):
                  drop_path_rate=0., norm_layer=nn.LayerNorm, global_pool=None,
                  block_layers=Block, Patch_layer=PatchEmbed, act_layer=nn.GELU,
                  Attention_block=Attention, Mlp_block=Mlp, dpr_constant=True, init_scale=1e-4,
-                 mlp_ratio_clstk=4.0, num_register_tokens=0, **kwargs):
+                 mlp_ratio_clstk=4.0, num_register_tokens=0, reg_pos=None, cls_pos=None, **kwargs):
         super().__init__()
+
+        self.reg_pos = reg_pos
+        self.cls_pos = cls_pos
 
         self.dropout_rate = drop_rate
 
@@ -405,22 +409,26 @@ class vit_register_dynamic(nn.Module):
         for i, blk in enumerate(self.blocks):
             if i == reg_pos and register_tokens is not None:
                 x = torch.cat((register_tokens, x), dim=1)
-            x = blk(x)
             if i == cls_pos:
                 x = torch.cat((cls_tokens, x), dim=1)
+            x = blk(x)
 
         # Apply layer normalization to the output of the last transformer block
         x = self.norm(x)
 
-        # Extract the class token
-        x_cls = x[:, -1]
-        x_regs = x[:, :self.num_register_tokens]
+        # Extract the class token if it's been added in the transformer blocks
+        if cls_pos is not None and cls_pos < len(self.blocks):
+            x_cls = x[:, 0]
+            x_regs = x[:, 1:1 + self.num_register_tokens]
+        else:  # If the CLS token is added at the end (CaiT-like)
+            x_cls = self.class_attention_block(x, cls_tokens).squeeze(1)
+            x_regs = x[:, :self.num_register_tokens]
 
         return x_cls, x_regs
 
-    def forward(self, x, cls_pos=None, reg_pos=None):
+    def forward(self, x):
         # Compute the forward pass through the transformer
-        x_cls, x_regs = self.forward_features(x, cls_pos, reg_pos)
+        x_cls, x_regs = self.forward_features(x, self.cls_pos, self.reg_pos)
 
         if self.dropout_rate:
             x_cls = F.dropout(x_cls, p=float(
@@ -455,6 +463,8 @@ drop_rate = 0.1
 attn_drop_rate = 0.1
 drop_path_rate = 0.1
 num_register_tokens = 4
+cls_pos = 5
+reg_pos = 6
 
 # Create an instance of the model
 model = vit_register_dynamic(
@@ -471,7 +481,9 @@ model = vit_register_dynamic(
     drop_rate=drop_rate,
     attn_drop_rate=attn_drop_rate,
     drop_path_rate=drop_path_rate,
-    num_register_tokens=num_register_tokens
+    num_register_tokens=num_register_tokens,
+    cls_pos=cls_pos,
+    reg_pos=reg_pos
 )
 
 # Create a random input tensor with the appropriate shape
@@ -479,10 +491,12 @@ batch_size = 2
 x = torch.randn(batch_size, in_chans, img_size, img_size)
 
 # Use the model with dynamic insertion points
-output = model(x, cls_pos=3, reg_pos=5)
+output = model(x)
 
 # Check the final output dimensions
 assert output.shape == (
     batch_size, num_classes), f"Final output shape mismatch: {output.shape}"
 
 print("All checks passed successfully!")
+
+summary(model, (3, 224, 224))
