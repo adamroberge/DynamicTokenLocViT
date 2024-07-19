@@ -2,14 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from functools import partial
-from torchvision import transforms
 from torchsummary import summary
-from PIL import Image
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
 from timm.models.vision_transformer import Mlp, PatchEmbed, _cfg
-
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 from timm.models.registry import register_model
 
@@ -28,6 +25,7 @@ class Class_Attention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
+    # changed input to both x(patch+reg) and cls_token (instead of only x from the original cait model)
     def forward(self, x, cls_token):
         B, N, C = x.shape
         # Ensure cls_token is expanded to match batch size
@@ -50,7 +48,7 @@ class Class_Attention(nn.Module):
         cls_token = self.proj(cls_token)
         cls_token = self.proj_drop(cls_token)
 
-        return cls_token, attn  # Return cls_token and attention weights
+        return cls_token
 
 
 class Attention(nn.Module):
@@ -69,24 +67,17 @@ class Attention(nn.Module):
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C //
                                   self.num_heads).permute(2, 0, 3, 1, 4)
-        # Dimension after permute: (3, B, self.num_heads, N, C // self.num_heads)
-        q, k, v = qkv[0], qkv[1], qkv[2]  # (B, num_heads, N, head_dim)
+        q, k, v = qkv[0], qkv[1], qkv[2]
 
-        q = q * self.scale  # q / sqrt(d) where d is head_dim
-
-        attn = (q @ k.transpose(-2, -1))  # (B, num_heads, N, N)
-        # softmax along the last dimension, which is the sequence length dim (N) a.k.a number of tokens
+        q = q * self.scale
+        attn = (q @ k.transpose(-2, -1))
         attn = attn.softmax(dim=-1)
-        # dropout layer applied to the attention weights.
         attn = self.attn_drop(attn)
 
-        # (B, num_heads, N, head_dim) -> (B, N, num_heads, head_dim) -> (B, N, C)
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        # applies a linear transformation to each token, resulting in a tensor of the same shape (B, N, C).
         x = self.proj(x)
-        # applies dropout to the output of the linear projection.
         x = self.proj_drop(x)
-        return x
+        return x, attn  # Return both the transformed tensor and attention weights
 
 
 class Block(nn.Module):
@@ -105,9 +96,11 @@ class Block(nn.Module):
             in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
     def forward(self, x):
-        x = x + self.drop_path(self.attn(self.norm1(x)))
+        # Get attention output and attention weights
+        attn_output, attn_weights = self.attn(self.norm1(x))
+        x = x + self.drop_path(attn_output)
         x = x + self.drop_path(self.mlp(self.norm2(x)))
-        return x
+        return x, attn_weights
 
 
 class Layer_scale_init_Block(nn.Module):
@@ -204,14 +197,17 @@ class hMLP_stem(nn.Module):
         return x
 
 
-class vit_register_end(nn.Module):
+class vit_register_dynamic_viz(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
                  num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
                  drop_path_rate=0., norm_layer=nn.LayerNorm, global_pool=None,
                  block_layers=Block, Patch_layer=PatchEmbed, act_layer=nn.GELU,
                  Attention_block=Attention, Mlp_block=Mlp, dpr_constant=True, init_scale=1e-4,
-                 mlp_ratio_clstk=4.0, num_register_tokens=0, class_attention_block=Class_Attention, **kwargs):
+                 mlp_ratio_clstk=4.0, num_register_tokens=0, reg_pos=0, cls_pos=0, **kwargs):
         super().__init__()
+
+        self.reg_pos = reg_pos
+        self.cls_pos = cls_pos
 
         self.dropout_rate = drop_rate
 
@@ -224,7 +220,7 @@ class vit_register_end(nn.Module):
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.pos_embed = nn.Parameter(torch.zeros(
-            1, num_patches + num_register_tokens, embed_dim))
+            1, num_patches + num_register_tokens + 1, embed_dim))  # patches + registers + 1 for cls
         self.num_register_tokens = num_register_tokens
         if num_register_tokens > 0:
             self.register_tokens = nn.Parameter(
@@ -240,15 +236,11 @@ class vit_register_end(nn.Module):
                 act_layer=act_layer, Attention_block=Attention_block, Mlp_block=Mlp_block, init_values=init_scale)
             for i in range(depth)])
 
-        # Class attention block
-        self.class_attention_block = class_attention_block(
-            dim=embed_dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
-            attn_drop=attn_drop_rate, proj_drop=drop_rate)
-
         self.norm = norm_layer(embed_dim)
 
         self.feature_info = [
             dict(num_chs=embed_dim, reduction=0, module='head')]
+
         self.head = nn.Linear(
             embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
@@ -289,43 +281,39 @@ class vit_register_end(nn.Module):
         B = x.shape[0]  # Get the batch size from the input tensor
         x = self.patch_embed(x)  # Apply patch embedding to the input image
 
-        # Add positional embeddings to the patch tokens
-        x = x + self.pos_embed[:, self.num_register_tokens:, :]
+        # Initialize cls_tokens and register_tokens placeholders
+        cls_tokens = self.cls_token.expand(B, -1, -1)
+        register_tokens = self.register_tokens.expand(
+            B, -1, -1) if self.register_tokens is not None else None
 
-        # self.register_tokens: (1, num_register_tokens, embed_dim)
-        if self.register_tokens is not None:
-            # Expand register tokens to match the batch size: (B, num_register_tokens, embed_dim)
-            register_tokens = self.register_tokens.expand(B, -1, -1)
-            # Concatenate register tokens and patch tokens: (B, num_register_tokens + num_patches, embed_dim)
-            x = torch.cat((register_tokens, x), dim=1)
+        # Add positional embeddings to the patch tokens
+        x = x + self.pos_embed[:, 1 + self.num_register_tokens:, :]
+        attn_weights = []
 
         # Pass the token sequence through each transformer block
         for i, blk in enumerate(self.blocks):
-            x = blk(x)
+            if i == self.reg_pos and register_tokens is not None:
+                x = torch.cat((register_tokens, x), dim=1)
+            if i == self.cls_pos:
+                x = torch.cat((cls_tokens, x), dim=1)
+            x, attn = blk(x)
+            attn_weights.append(attn)
 
         # Apply layer normalization to the output of the last transformer block
         x = self.norm(x)
 
-        # Return the entire sequence
-        return x
+        # Extract the class token
+        x_cls = x[:, -1]
+        x_regs = x[:, :self.num_register_tokens]
+
+        return x_cls, x_regs, attn_weights
 
     def forward(self, x):
         # Compute the forward pass through the transformer
-        x = self.forward_features(x)
-
-        # Expand the class token to match the batch size
-        cls_tokens = self.cls_token.expand(x.size(0), -1, -1)
-
-        # Apply class attention and get attention weights
-        cls_tokens, attn_weights = self.class_attention_block(x, cls_tokens)
-
-        # Extract the class token
-        x_cls = cls_tokens.squeeze(1)
-        x_regs = x[:, :self.num_register_tokens]
-
+        x_cls, x_regs, attn_weights = self.forward_features(x)
         if self.dropout_rate:
-            x_cls = F.dropout(x_cls, p=float(self.dropout_rate),
-                              training=self.training)
+            x_cls = F.dropout(x_cls, p=float(
+                self.dropout_rate), training=self.training)
 
         if self.register_tokens is not None:
             # Concatenate class token with register tokens
@@ -337,24 +325,7 @@ class vit_register_end(nn.Module):
 
         # Pass the class token representation through the classification head
         x_cls = self.head(x_cls)
-
-        # Return final class scores and attention weights
         return x_cls, attn_weights  # Return the final class scores and attention weights
-
-
-# Function to load and preprocess the image
-def load_image(image_path, transform):
-    image = Image.open(image_path).convert('RGB')
-    return transform(image).unsqueeze(0)  # Add batch dimension
-
-
-# Define the transformations
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225]),
-])
 
 
 # Define model parameters
@@ -372,9 +343,11 @@ drop_rate = 0.1
 attn_drop_rate = 0.1
 drop_path_rate = 0.1
 num_register_tokens = 4
+cls_pos = 5
+reg_pos = 6
 
 # Create an instance of the model
-model = vit_register_end(
+model = vit_register_dynamic_viz(
     img_size=img_size,
     patch_size=patch_size,
     in_chans=in_chans,
@@ -388,72 +361,29 @@ model = vit_register_end(
     drop_rate=drop_rate,
     attn_drop_rate=attn_drop_rate,
     drop_path_rate=drop_path_rate,
-    num_register_tokens=num_register_tokens
+    num_register_tokens=num_register_tokens,
+    cls_pos=cls_pos,
+    reg_pos=reg_pos
 )
 
-# Print the model summary
-# summary(model, (in_chans, img_size, img_size))
+# Generate a random input tensor
+batch_size = 1
+x = torch.randn(batch_size, in_chans, img_size, img_size)
 
-
-# Test code to check if the sizes and dimensions have no error and visualize attention
-def test_vit_register_models():
-    # Define model parameters
-    img_size = 224
-    patch_size = 16
-    in_chans = 3
-    num_classes = 10
-    embed_dim = 768
-    depth = 12
-    num_heads = 12
-    mlp_ratio = 4.0
-    qkv_bias = True
-    qk_scale = None
-    drop_rate = 0.1
-    attn_drop_rate = 0.1
-    drop_path_rate = 0.1
-    num_register_tokens = 4
-
-    # Create an instance of the model
-    model = vit_register_end(
-        img_size=img_size,
-        patch_size=patch_size,
-        in_chans=in_chans,
-        num_classes=num_classes,
-        embed_dim=embed_dim,
-        depth=depth,
-        num_heads=num_heads,
-        mlp_ratio=mlp_ratio,
-        qkv_bias=qkv_bias,
-        qk_scale=qk_scale,
-        drop_rate=drop_rate,
-        attn_drop_rate=attn_drop_rate,
-        drop_path_rate=drop_path_rate,
-        num_register_tokens=num_register_tokens
-    )
-
-    # Create a random input tensor with the appropriate shape
-    batch_size = 2  # Example batch size
-    x = torch.randn(batch_size, in_chans, img_size, img_size)
-
-    # Pass the input through the model
+# Get the outputs and attention weights
+model.eval()
+with torch.no_grad():
     x_cls, attn_weights = model(x)
 
-    # Check the final output dimensions
-    assert x_cls.shape == (
-        batch_size, num_classes), f"Final output shape mismatch: {x_cls.shape}"
+# Plot attention maps
+fig, axs = plt.subplots(3, 4, figsize=(12, 6))
+axs = axs.flatten()
+for i, attn in enumerate(attn_weights):
+    attn_map = attn[0].mean(dim=0).cpu().numpy()
+    im = axs[i].imshow(attn_map, cmap='viridis')
+    axs[i].set_title(f'Layer {i + 1} Attention Map', fontsize=10)
+    cbar = fig.colorbar(im, ax=axs[i], aspect=6)
+    cbar.ax.tick_params(labelsize=8)
 
-    print("All checks passed successfully!")
-
-    # Compute the L2 norm of the attention weights
-    attn_l2 = torch.norm(attn_weights, p=2, dim=-
-                         1).mean(dim=1).squeeze(0).detach().cpu().numpy()
-
-    # Visualize the attention map
-    plt.imshow(attn_l2, cmap='viridis')
-    plt.colorbar()
-    plt.title("Attention Map L2 Norm")
-    plt.show()
-
-
-# Run the test
-test_vit_register_models()
+plt.tight_layout()
+plt.show()
