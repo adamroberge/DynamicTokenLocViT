@@ -39,7 +39,8 @@ class SmoothedValue(object):
         """
         if not is_dist_avail_and_initialized():
             return
-        t = torch.tensor([self.count, self.total], dtype=torch.float64, device='cuda')
+        t = torch.tensor([self.count, self.total],
+                         dtype=torch.float64, device='cuda')
         dist.barrier()
         dist.all_reduce(t)
         t = t.tolist()
@@ -164,7 +165,7 @@ def _load_checkpoint_for_ema(model_ema, checkpoint):
     Workaround for ModelEma._load_checkpoint to accept an already-loaded object
     """
     mem_file = io.BytesIO()
-    torch.save({'state_dict_ema':checkpoint}, mem_file)
+    torch.save({'state_dict_ema': checkpoint}, mem_file)
     mem_file.seek(0)
     model_ema._load_checkpoint(mem_file)
 
