@@ -1,6 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
