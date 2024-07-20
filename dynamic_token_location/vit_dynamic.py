@@ -334,8 +334,9 @@ class vit_register_dynamic(nn.Module):
         num_patches = self.patch_embed.num_patches
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = nn.Parameter(torch.zeros(
-            1, num_patches + num_register_tokens + 1, embed_dim))  # patches + registers + 1 for cls
+        # -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+        # self.pos_embed = nn.Parameter(torch.zeros(
+        #     1, num_patches + num_register_tokens + 1, embed_dim))  # patches + registers + 1 for cls
         self.num_register_tokens = num_register_tokens
         if num_register_tokens > 0:
             self.register_tokens = nn.Parameter(
