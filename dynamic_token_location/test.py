@@ -6,7 +6,9 @@ from torchvision.datasets import CIFAR10
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from vit_dynamic import vit_register_dynamic, vit_models
+# Ensure vit_dynamic contains your deit_small_patch16_LS definition
+from original_vit import deit_small_patch16_LS
+from vit_dynamic import vit_register_dynamic, model
 
 # Define data transforms without augmentation
 transform = transforms.Compose([
@@ -26,30 +28,35 @@ train_loader = DataLoader(train_dataset, batch_size=64,
 test_loader = DataLoader(test_dataset, batch_size=64,
                          shuffle=False, num_workers=2)
 
-# Get a single batch of training data
-one_batch = next(iter(train_loader))
-inputs, targets = one_batch
+# Initialize the model
+# model = deit_small_patch16_LS(img_size=224, num_classes=10)
 
-model = vit_models(img_size=224, patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
-                   num_heads=6, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
-                   drop_path_rate=0., init_scale=1e-4,
-                   mlp_ratio_clstk=4.0)
 
 # Move the model to GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
-inputs, targets = inputs.to(device), targets.to(device)
 
 # Define the loss function and optimizer
 loss_fn = nn.CrossEntropyLoss()
 optimizer = optim.AdamW(model.parameters(), lr=5e-4)
 
 # Training loop
-num_epochs = 10
+num_epochs = 100
+best_accuracy = 0.0
+best_model_path = 'best_model.pth'
 training_accuracies = []
+
+# Get a single batch of training data for overfitting test
+one_batch = next(iter(train_loader))
+inputs, targets = one_batch
+inputs, targets = inputs.to(device), targets.to(device)
 
 for epoch in range(num_epochs):
     model.train()
+    running_loss = 0.0
+    correct = 0
+    total = 0
+
     # Zero the parameter gradients
     optimizer.zero_grad()
 
@@ -61,13 +68,22 @@ for epoch in range(num_epochs):
     loss.backward()
     optimizer.step()
 
+    running_loss += loss.item()
+
     # Calculate accuracy
     _, predicted = torch.max(outputs.data, 1)
-    accuracy = (predicted == targets).sum().item() / targets.size(0) * 100
-    training_accuracies.append(accuracy)
+    total += targets.size(0)
+    correct += (predicted == targets).sum().item()
 
+    accuracy = 100 * correct / total
+    training_accuracies.append(accuracy)
     print(
-        f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}, Accuracy: {accuracy:.2f}%")
+        f"Epoch [{epoch + 1}/{num_epochs}], Loss: {running_loss:.4f}, Accuracy: {accuracy:.2f}%")
+
+    # Save the best model
+    if accuracy > best_accuracy:
+        best_accuracy = accuracy
+        torch.save(model.state_dict(), best_model_path)
 
 print("Training complete")
 
@@ -80,7 +96,8 @@ plt.ylabel('Accuracy (%)')
 plt.grid()
 plt.show()
 
-# Evaluate the model on the test set
+# Load the best model for evaluation
+model.load_state_dict(torch.load(best_model_path))
 model.eval()
 correct = 0
 total = 0
