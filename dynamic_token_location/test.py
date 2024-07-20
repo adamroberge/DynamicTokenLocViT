@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 # Ensure vit_dynamic contains your deit_small_patch16_LS definition
-from original_vit import deit_small_patch16_LS
+from original_vit_deit import deit_small_patch16_LS
 from vit_dynamic import vit_register_dynamic, model
 
 # Define data transforms without augmentation
