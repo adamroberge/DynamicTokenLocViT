@@ -94,10 +94,7 @@ class Block(nn.Module):
         self.mlp = Mlp_block(
             in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
-    def forward(self, x, return_attention=False):
-        y, attn = self.attn(self.norm1(x))
-        if return_attention:
-            return attn
+    def forward(self, x):
         x = x + self.drop_path(self.attn(self.norm1(x)))
         x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x
@@ -421,8 +418,8 @@ class vit_register_dynamic(nn.Module):
         x_cls = self.head(x_cls)
 
         return x_cls  # Return the final class scores
-
-    def get_last_selfattention(self, x):
+    
+	def get_last_selfattention(self, x):
         x = self.prepare_tokens(x)
         for i, blk in enumerate(self.blocks):
             if i < len(self.blocks) - 1:
@@ -442,13 +439,3 @@ class vit_register_dynamic(nn.Module):
                 # Return attention of the specified layer
                 return blk(x, return_attention=True)
 
-
-model = vit_register_dynamic(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
-                             num_heads=6, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
-                             drop_path_rate=0., init_scale=1e-4,
-                             mlp_ratio_clstk=4.0, cls_pos=0, reg_pos=0)
-
-# model = vit_models(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
-#                  num_heads=6, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
-#                  drop_path_rate=0., init_scale=1e-4,
-#                  mlp_ratio_clstk=4.0)
