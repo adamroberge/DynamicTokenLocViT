@@ -8,7 +8,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 # Ensure vit_dynamic contains your deit_small_patch16_LS definition
 from dynamic_token_location.original_vit_deit import deit_small_patch16_LS, deit_small_patch16
-from vit_dynamic import vit_models, vit_register_dynamic
+from dynamic_vit import vit_models, vit_register_dynamic
 from custom_summary import custom_summary
 
 

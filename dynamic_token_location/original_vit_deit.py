@@ -512,6 +512,28 @@ def deit_small_patch16_LS(pretrained=False, img_size=224, pretrained_21k=False, 
 
 
 @register_model
+def deit_small_patch16(pretrained=False, img_size=224, pretrained_21k=False,  **kwargs):
+    model = vit_models(
+        img_size=img_size, patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
+        norm_layer=nn.LayerNorm, block_layers=Block, **kwargs)
+    model.default_cfg = _cfg()
+    if pretrained:
+        name = 'https://dl.fbaipublicfiles.com/deit/deit_3_small_' + \
+            str(img_size)+'_'
+        if pretrained_21k:
+            name += '21k.pth'
+        else:
+            name += '1k.pth'
+
+        checkpoint = torch.hub.load_state_dict_from_url(
+            url=name,
+            map_location="cpu", check_hash=True
+        )
+        model.load_state_dict(checkpoint["model"])
+
+    return model
+
+@register_model
 def deit_medium_patch16_LS(pretrained=False, img_size=224, pretrained_21k=False, **kwargs):
     model = vit_models(
         patch_size=16, embed_dim=512, depth=12, num_heads=8, mlp_ratio=4, qkv_bias=True,
