@@ -13,7 +13,6 @@ from timm.models.registry import register_model
 
 
 class Attention(nn.Module):
-    # taken from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
     def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.):
         super().__init__()
         self.num_heads = num_heads
@@ -419,13 +418,3 @@ class vit_register_dynamic(nn.Module):
 
         return x_cls  # Return the final class scores
 
-
-model = vit_register_dynamic(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
-                             num_heads=6, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
-                             drop_path_rate=0., init_scale=1e-4,
-                             mlp_ratio_clstk=4.0, cls_pos=0, reg_pos=0)
-
-# model = vit_models(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
-#                  num_heads=6, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
-#                  drop_path_rate=0., init_scale=1e-4,
-#                  mlp_ratio_clstk=4.0)
