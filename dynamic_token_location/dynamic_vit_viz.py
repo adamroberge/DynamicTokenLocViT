@@ -419,7 +419,7 @@ class vit_register_dynamic(nn.Module):
 
         return x_cls  # Return the final class scores
     
-	def get_last_selfattention(self, x):
+    def get_last_selfattention(self, x):
         x = self.prepare_tokens(x)
         for i, blk in enumerate(self.blocks):
             if i < len(self.blocks) - 1:
