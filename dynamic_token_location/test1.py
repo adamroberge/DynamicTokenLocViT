@@ -12,6 +12,7 @@ import random
 # Ensure vit_dynamic contains your deit_small_patch16_LS definition
 from original_vit_deit import deit_small_patch16_LS, deit_small_patch16
 from dynamic_vit import vit_models, vit_register_dynamic
+from dynamic_vit_viz import vit_register_dynamic_viz
 from custom_summary import custom_summary
 
 # Set random seed for reproducibility
@@ -48,10 +49,17 @@ test_loader = DataLoader(test_dataset, batch_size=64,
 #                  num_heads=6, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
 #                  drop_path_rate=0., init_scale=1e-4,
 #                  mlp_ratio_clstk=4.0)
+
 model = vit_register_dynamic(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
                              num_heads=6, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
                              drop_path_rate=0., init_scale=1e-4,
                              mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=0)
+
+# model = vit_register_dynamic_viz(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
+#                              num_heads=6, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
+#                              drop_path_rate=0., init_scale=1e-4,
+#                              mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=0)
+
 
 custom_summary(model, (3, 224, 224))
 

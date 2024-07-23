@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 from functools import partial
 from torchsummary import summary
 import numpy as np
@@ -28,29 +29,23 @@ class Attention(nn.Module):
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C //
                                   self.num_heads).permute(2, 0, 3, 1, 4)
-        # Dimension after permute: (3, B, self.num_heads, N, C // self.num_heads)
-        q, k, v = qkv[0], qkv[1], qkv[2]  # (B, num_heads, N, head_dim)
+        q, k, v = qkv[0], qkv[1], qkv[2]
 
-        q = q * self.scale  # q / sqrt(d) where d is head_dim
+        q = q * self.scale
 
-        attn = (q @ k.transpose(-2, -1))  # (B, num_heads, N, N)
-        # softmax along the last dimension, which is the sequence length dim (N) a.k.a number of tokens
+        attn = (q @ k.transpose(-2, -1))
         attn = attn.softmax(dim=-1)
-        # dropout layer applied to the attention weights.
         attn = self.attn_drop(attn)
 
-        # (B, num_heads, N, head_dim) -> (B, N, num_heads, head_dim) -> (B, N, C)
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        # applies a linear transformation to each token, resulting in a tensor of the same shape (B, N, C).
         x = self.proj(x)
-        # applies dropout to the output of the linear projection.
         x = self.proj_drop(x)
         return x, attn
 
 
 class Block(nn.Module):
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm):
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, Attention_block=Attention, Mlp_block=Mlp, init_values=1e-4):
         super().__init__()
         self.norm1 = norm_layer(dim)
         self.attn = Attention(
@@ -163,7 +158,7 @@ class hMLP_stem(nn.Module):
         return x
 
 
-class vit_register_dynamic(nn.Module):
+class vit_register_dynamic_viz(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
                  num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
                  drop_path_rate=0., norm_layer=nn.LayerNorm, global_pool=None,
@@ -198,7 +193,7 @@ class vit_register_dynamic(nn.Module):
             block_layers(
                 dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
                 drop=0.0, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer,
-                act_layer=act_layer, Attention_block=Attention_block, Mlp_block=Mlp_block, init_values=init_scale)
+                act_layer=act_layer, Attention_block=Attention, Mlp_block=Mlp_block, init_values=init_scale)
             for i in range(depth)])
 
         self.norm = norm_layer(embed_dim)
@@ -237,7 +232,7 @@ class vit_register_dynamic(nn.Module):
         self.head = nn.Linear(
             self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
-    def forward_features(self, x, cls_pos=None, reg_pos=None):
+    def prepare_tokens(self, x):
         B = x.shape[0]  # Get the batch size from the input tensor
         x = self.patch_embed(x)  # Apply patch embedding to the input image
 
@@ -249,7 +244,10 @@ class vit_register_dynamic(nn.Module):
         # Add positional embeddings to the patch tokens
         # x = x + self.pos_embed[:, :self.num_patches, :]
         x = x + self.pos_embed
+        return x, cls_tokens, register_tokens
 
+    def forward_features(self, x, cls_pos=None, reg_pos=None):
+        x, cls_tokens, register_tokens = self.prepare_tokens(x)
         # Pass the token sequence through each transformer block
         for i, blk in enumerate(self.blocks):
             if i == reg_pos and register_tokens is not None:
@@ -282,22 +280,22 @@ class vit_register_dynamic(nn.Module):
         return x_cls  # Return the final class scores
     
     def get_last_selfattention(self, x):
-        x = self.prepare_tokens(x)
+        x, cls_tokens, reg_tokens = self.prepare_tokens(x)
         for i, blk in enumerate(self.blocks):
             if i < len(self.blocks) - 1:
                 x = blk(x)
             else:
                 # return attention of the last block
                 return blk(x, return_attention=True)
-    
-    def get_any_selfattention(self, x, layer_num):
-        assert 0 <= layer_num < len(self.blocks), "layer_num must be within the range of the number of layers."
-    
-        x = self.prepare_tokens(x)    
-        for i, blk in enumerate(self.blocks):
-            if i < layer_num:
-                x = blk(x)
-            else:
-                # Return attention of the specified layer
-                return blk(x, return_attention=True)
 
+    def get_intermediate_layers(self, x):
+        x, cls_tokens, reg_tokens = self.prepare_tokens(x)
+        # we return the output tokens from the nth block
+        output = []
+        n = self.depth
+        for i, blk in enumerate(self.blocks):
+            x = blk(x)
+            if i == n - 1:
+                output.append(self.norm(x))
+                break  # exit loop once the nth block is processed
+        return output

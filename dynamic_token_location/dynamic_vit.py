@@ -13,37 +13,6 @@ from timm.models.registry import register_model
 
 
 class Attention(nn.Module):
-    # taken from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
-    def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.):
-        super().__init__()
-        self.num_heads = num_heads
-        head_dim = dim // num_heads
-        self.scale = qk_scale or head_dim ** -0.5
-
-        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
-        self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(dim, dim)
-        self.proj_drop = nn.Dropout(proj_drop)
-
-    def forward(self, x):
-        B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C //
-                                  self.num_heads).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv[0], qkv[1], qkv[2]
-
-        q = q * self.scale
-
-        attn = (q @ k.transpose(-2, -1))
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
-
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        x = self.proj(x)
-        x = self.proj_drop(x)
-        return x
-
-
-class Attention(nn.Module):
     def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.):
         super().__init__()
         self.num_heads = num_heads
@@ -375,7 +344,7 @@ class vit_register_dynamic(nn.Module):
         self.head = nn.Linear(
             self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
-    def forward_features(self, x, cls_pos=None, reg_pos=None):
+    def prepare_tokens(self, x):
         B = x.shape[0]  # Get the batch size from the input tensor
         x = self.patch_embed(x)  # Apply patch embedding to the input image
 
@@ -387,7 +356,10 @@ class vit_register_dynamic(nn.Module):
         # Add positional embeddings to the patch tokens
         # x = x + self.pos_embed[:, :self.num_patches, :]
         x = x + self.pos_embed
+        return x, cls_tokens, register_tokens
 
+    def forward_features(self, x, cls_pos=None, reg_pos=None):
+        x, cls_tokens, register_tokens = self.prepare_tokens(x)
         # Pass the token sequence through each transformer block
         for i, blk in enumerate(self.blocks):
             if i == reg_pos and register_tokens is not None:
@@ -405,7 +377,7 @@ class vit_register_dynamic(nn.Module):
         x_regs = x[:, -self.num_register_tokens:] if self.num_register_tokens > 0 else None
 
         return x_cls, x_regs
-
+    
     def forward(self, x):
         # Compute the forward pass through the transformer
         x_cls, x_regs = self.forward_features(x, self.cls_pos, self.reg_pos)
