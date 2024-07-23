@@ -40,7 +40,7 @@ class Attention(nn.Module):
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
-        return x, attn
+        return x, attn # Return both x and attention
 
 
 class Block(nn.Module):
@@ -57,7 +57,7 @@ class Block(nn.Module):
 
     def forward(self, x, return_attention=False):
         y, attn = self.attn(self.norm1(x))
-        if return_attention:
+        if return_attention: # if return_attention is true, only return the attn
             return attn
         x = x + self.drop_path(y)
         x = x + self.drop_path(self.mlp(self.norm2(x)))
