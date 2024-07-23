@@ -193,7 +193,7 @@ class vit_register_dynamic_viz(nn.Module):
             block_layers(
                 dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
                 drop=0.0, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer,
-                act_layer=act_layer, Attention_block=Attention, Mlp_block=Mlp_block, init_values=init_scale)
+                act_layer=act_layer, Attention_block=Attention_block, Mlp_block=Mlp_block, init_values=init_scale)
             for i in range(depth)])
 
         self.norm = norm_layer(embed_dim)
@@ -294,7 +294,7 @@ class vit_register_dynamic_viz(nn.Module):
         output = []
         n = self.depth
         for i, blk in enumerate(self.blocks):
-            x = blk(x)
+            x = blk(x, return_attention=True)
             if i == n - 1:
                 output.append(self.norm(x))
                 break  # exit loop once the nth block is processed
