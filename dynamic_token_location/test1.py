@@ -6,10 +6,22 @@ from torchvision.datasets import CIFAR10
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import numpy as np
+import random
+
 # Ensure vit_dynamic contains your deit_small_patch16_LS definition
 from original_vit_deit import deit_small_patch16_LS, deit_small_patch16
 from dynamic_vit import vit_models, vit_register_dynamic
 from custom_summary import custom_summary
+
+# Set random seed for reproducibility
+seed = 42
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+np.random.seed(seed)
+random.seed(seed)
 
 # Define data transforms without augmentation
 transform = transforms.Compose([
@@ -25,9 +37,9 @@ test_dataset = CIFAR10(root='./data', train=False,
                        download=True, transform=transform)
 
 train_loader = DataLoader(train_dataset, batch_size=64,
-                          shuffle=True, num_workers=2)
+                          shuffle=True, num_workers=2, worker_init_fn=lambda _: np.random.seed(seed))
 test_loader = DataLoader(test_dataset, batch_size=64,
-                         shuffle=False, num_workers=2)
+                         shuffle=False, num_workers=2, worker_init_fn=lambda _: np.random.seed(seed))
 
 # Initialize the model
 # model = deit_small_patch16_LS(img_size=224, num_classes=10)
@@ -41,9 +53,7 @@ model = vit_register_dynamic(img_size=224,  patch_size=16, in_chans=3, num_class
                              drop_path_rate=0., init_scale=1e-4,
                              mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=0)
 
-
 custom_summary(model, (3, 224, 224))
-
 
 # Move the model to GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -107,8 +117,8 @@ plt.title('Training Accuracy Over Epochs')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy (%)')
 plt.grid()
-plt.show()
 plt.savefig('training_accuracy_over_epochs.pdf', format='pdf')
+plt.show()
 
 # Load the best model for evaluation
 model.load_state_dict(torch.load(best_model_path))
