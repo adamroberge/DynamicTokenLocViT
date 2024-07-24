@@ -45,9 +45,9 @@ if __name__ == '__main__':
 
     # Get self-attention from the specified layer
     if args.layer_num >= 0:
-        attentions = model.get_any_selfattention(img, args.layer_num)
+        attentions = model.get_selfattention(img, args.layer_num)
     else:
-        attentions = model.get_any_selfattention(img, len(model.blocks) - 1)
+        attentions = model.get_selfattention(img, len(model.blocks) - 1)
 
     nh = attentions.shape[1]  # number of heads
 

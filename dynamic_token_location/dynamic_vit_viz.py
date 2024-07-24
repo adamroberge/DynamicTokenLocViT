@@ -35,7 +35,7 @@ class Attention(nn.Module):
 
         attn = (q @ k.transpose(-2, -1))
         attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
+        attn = self.attn_drop(attn) # (B, num_heads, N, N)
 
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
@@ -203,6 +203,16 @@ class vit_register_dynamic_viz(nn.Module):
         self.head = nn.Linear(
             embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
+        self.proj = nn.Sequential(
+            nn.Conv2d(in_chans, embed_dim//4, kernel_size=4, stride=4),
+            norm_layer(embed_dim//4),
+            nn.GELU(),
+            nn.Conv2d(embed_dim//4, embed_dim//4, kernel_size=2, stride=2),
+            norm_layer(embed_dim//4),
+            nn.GELU(),
+            nn.Conv2d(embed_dim//4, embed_dim, kernel_size=2, stride=2),
+            norm_layer(embed_dim),
+        )
         trunc_normal_(self.pos_embed, std=.02)
         trunc_normal_(self.cls_token, std=.02)
         trunc_normal_(self.register_tokens, std=.02)
@@ -288,14 +298,18 @@ class vit_register_dynamic_viz(nn.Module):
                 # return attention of the last block
                 return blk(x, return_attention=True)
 
-    def get_intermediate_layers(self, x):
+    def get_selfattention(self, x, layer):
         x, cls_tokens, reg_tokens = self.prepare_tokens(x)
-        # we return the output tokens from the nth block
-        output = []
-        n = self.depth
+        output = None
         for i, blk in enumerate(self.blocks):
-            x = blk(x, return_attention=True)
-            if i == n - 1:
-                output.append(self.norm(x))
-                break  # exit loop once the nth block is processed
+            if i == layer:
+                # Get the attention map from the specified layer
+                attn = blk(x, return_attention=True)
+                B, num_heads, N, _ = attn.shape
+                # Projection 
+                output = self.proj(attn)
+                break
+            else:
+                x = blk(x)
         return output
+
