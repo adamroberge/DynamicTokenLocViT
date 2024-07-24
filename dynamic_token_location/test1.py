@@ -15,6 +15,7 @@ from original_vit_deit import deit_small_patch16_LS, deit_small_patch16
 from dynamic_vit import vit_models, vit_register_dynamic
 from dynamic_vit_viz import vit_register_dynamic_viz
 from custom_summary import custom_summary
+from train_model import train_model
 
 
 # Set random seed for reproducibility

@@ -57,7 +57,7 @@ custom_summary(model, (3, 224, 224))
 loss_fn = nn.CrossEntropyLoss()
 optimizer = optim.AdamW(model.parameters(), lr=5e-4)
 
-def train_model(model, train_loader, loss_fn, optimizer, num_epochs=200, device='cuda'):
+def train_model(model, train_loader, loss_fn, optimizer, num_epochs=150, device=device):
     best_accuracy = 0.0
     best_model_path = 'best_model.pth'
     training_accuracies = []
