@@ -1,10 +1,27 @@
 import os
 import argparse
 import torch
+import torch.nn as nn 
+import torch.optim as optim
 import torchvision
+from torchvision.datasets import CIFAR10
+from torch.utils.data import DataLoader
 from torchvision import datasets, transforms as pth_transforms
+import numpy as np
+import random
 import matplotlib.pyplot as plt
 from dynamic_vit_viz import vit_register_dynamic_viz
+from train_model import train_model
+
+
+# Set random seed for reproducibility
+seed = 0
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+np.random.seed(seed)
+random.seed(seed)
 
 # Argument parser for command-line options
 if __name__ == '__main__':
@@ -25,8 +42,11 @@ if __name__ == '__main__':
     ])
 
     # Load CIFAR-10 dataset
-    test_dataset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=2)
+    train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
+    test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
+
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=2, worker_init_fn=lambda _: np.random.seed(seed))
+    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=2, worker_init_fn=lambda _: np.random.seed(seed))
 
     # Get one image from the test dataset
     for images, _ in test_loader:
@@ -34,7 +54,17 @@ if __name__ == '__main__':
         break
 
     # Build the model
-    model = vit_register_dynamic_viz(img_size=224, patch_size=16, num_classes=10, depth=12)
+    model = vit_register_dynamic_viz(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
+                             num_heads=6, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
+                             drop_path_rate=0., init_scale=1e-4,
+                             mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=None)   
+    
+    # Define the loss function and optimizer
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = optim.AdamW(model.parameters(), lr=5e-4)
+    
+    # model = train_model(model, train_loader, loss_fn, optimizer, num_epochs=150, device=device)
+ 
     model.eval()  # Set the model to evaluation mode
     model.to(device)  # Move the model to the specified device (CPU or GPU)
 
@@ -53,22 +83,30 @@ if __name__ == '__main__':
 
     nh = attentions.shape[1]  # Number of heads
 
-    # Keep only the output patch attention and reshape
-    attentions = attentions[0, :, 0, 1:].reshape(nh, -1)  
-    # attentions[0, :, 0, 1:] results in shape (12, 196, 195)
-    # reshape(12, 196 * 195) results in shape (12, 38160)
+    # Print the shape before and after each operation for debugging
+    print(f"Original attentions shape: {attentions.shape}")
 
-    # Reshape attention maps to match feature map dimensions
-    attentions = attentions.reshape(nh, w_featmap, h_featmap)
-    # Assuming w_featmap = h_featmap = 14
-    # reshape(12, 38160) to (12, 14, 14)
+    # Keep only the output patch attention and reshape
+    # We are slicing attentions to keep only patch tokens (not the class token)
+    attentions = attentions[0, :, 0, 1:]
+    print(f"Shape after slicing: {attentions.shape}")
+
+    # Ensure the total number of elements matches the expected size
+    expected_size = nh * w_featmap * h_featmap
+    actual_size = attentions.numel()
+    print(f"Expected size: {expected_size}, Actual size: {actual_size}")
+
+    if actual_size == expected_size:
+        attentions = attentions.reshape(nh, w_featmap, h_featmap)
+    else:
+        raise ValueError(f"The number of elements in the attention maps ({actual_size}) does not match the expected size ({expected_size}).")
+
+    # Print shape after reshaping
+    print(f"Shape after reshaping: {attentions.shape}")
 
     # Upsample the attention maps to the input image size
-    attentions = torch.nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=16, mode="nearest")[0].cpu().numpy()
-    # attentions.unsqueeze(0) results in shape (1, 12, 14, 14)
-    # interpolate with scale_factor=16 results in shape (1, 12, 224, 224)
-    # [0] removes batch dimension resulting in shape (12, 224, 224)
-    # .cpu().numpy() converts to NumPy array
+    attentions = torch.nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=16, mode="nearest")[0].cpu().detach().numpy()
+    print(f"Shape after upsampling: {attentions.shape}")
 
     # Save attention heatmaps
     os.makedirs(args.output_dir, exist_ok=True)

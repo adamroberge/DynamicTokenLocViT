@@ -278,9 +278,6 @@ class vit_register_dynamic_viz(nn.Module):
         x_cls = self.head(x_cls)
 
         return x_cls  # Return the final class scores
-
-
-
     
     def get_last_selfattention(self, x):
         x, cls_tokens, reg_tokens = self.prepare_tokens(x)
@@ -292,13 +289,21 @@ class vit_register_dynamic_viz(nn.Module):
                 return blk(x, return_attention=True)
 
     def get_selfattention(self, x, layer):
+        cls_pos = self.cls_pos
+        reg_pos = self.reg_pos
+        num_reg = self.num_register_tokens
+
         x, cls_tokens, reg_tokens = self.prepare_tokens(x)
+
         for i, blk in enumerate(self.blocks):
+            if i == reg_pos and reg_tokens is not None:
+                x = torch.cat((x, reg_tokens), dim=1)
+            if i == cls_pos:
+                x = torch.cat((cls_tokens, x), dim=1)
+            x = blk(x)
             if i == layer:
                 # Get the attention map from the specified layer
                 attn = blk(x, return_attention=True) # (1, 12, 192, 192)
                 break
-            else:
-                x = blk(x)
         return attn
 
