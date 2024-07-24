@@ -391,4 +391,3 @@ class vit_register_dynamic(nn.Module):
 
         return x_cls  # Return the final class scores
 
-

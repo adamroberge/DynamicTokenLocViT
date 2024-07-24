@@ -3,8 +3,11 @@ import torch.nn as nn
 import numpy as np
 from collections import OrderedDict
 
-
 def custom_summary(model, input_size, batch_size=-1, device="cuda"):
+    # Save the random seed state
+    rng_state = torch.get_rng_state()
+    cuda_rng_state = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    
     def register_hook(module):
         def hook(module, input, output):
             class_name = str(module.__class__).split(".")[-1].split("'")[0]
@@ -60,7 +63,9 @@ def custom_summary(model, input_size, batch_size=-1, device="cuda"):
     x = [torch.rand(2, *in_size).to(device) for in_size in input_size]
 
     # Make a forward pass
-    model(*x)
+    model.eval()  # Ensure the model is in evaluation mode
+    with torch.no_grad():  # Ensure no gradients are calculated
+        model(*x)
 
     # Remove these hooks
     for h in hooks:
@@ -115,3 +120,8 @@ def custom_summary(model, input_size, batch_size=-1, device="cuda"):
     print("Params size (MB): %0.2f" % total_params_size)
     print("Estimated Total Size (MB): %0.2f" % total_size)
     print("----------------------------------------------------------------")
+
+    # Restore the random seed state
+    torch.set_rng_state(rng_state)
+    if cuda_rng_state is not None:
+        torch.cuda.set_rng_state_all(cuda_rng_state)

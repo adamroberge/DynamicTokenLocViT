@@ -203,16 +203,6 @@ class vit_register_dynamic_viz(nn.Module):
         self.head = nn.Linear(
             embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
-        self.proj = nn.Sequential(
-            nn.Conv2d(in_chans, embed_dim//4, kernel_size=4, stride=4),
-            norm_layer(embed_dim//4),
-            nn.GELU(),
-            nn.Conv2d(embed_dim//4, embed_dim//4, kernel_size=2, stride=2),
-            norm_layer(embed_dim//4),
-            nn.GELU(),
-            nn.Conv2d(embed_dim//4, embed_dim, kernel_size=2, stride=2),
-            norm_layer(embed_dim),
-        )
         trunc_normal_(self.pos_embed, std=.02)
         trunc_normal_(self.cls_token, std=.02)
         trunc_normal_(self.register_tokens, std=.02)
@@ -275,7 +265,7 @@ class vit_register_dynamic_viz(nn.Module):
         x_regs = x[:, -self.num_register_tokens:] if self.num_register_tokens > 0 else None
 
         return x_cls, x_regs
-
+    
     def forward(self, x):
         # Compute the forward pass through the transformer
         x_cls, x_regs = self.forward_features(x, self.cls_pos, self.reg_pos)
@@ -288,6 +278,9 @@ class vit_register_dynamic_viz(nn.Module):
         x_cls = self.head(x_cls)
 
         return x_cls  # Return the final class scores
+
+
+
     
     def get_last_selfattention(self, x):
         x, cls_tokens, reg_tokens = self.prepare_tokens(x)
@@ -300,16 +293,12 @@ class vit_register_dynamic_viz(nn.Module):
 
     def get_selfattention(self, x, layer):
         x, cls_tokens, reg_tokens = self.prepare_tokens(x)
-        output = None
         for i, blk in enumerate(self.blocks):
             if i == layer:
                 # Get the attention map from the specified layer
-                attn = blk(x, return_attention=True)
-                B, num_heads, N, _ = attn.shape
-                # Projection 
-                output = self.proj(attn)
+                attn = blk(x, return_attention=True) # (1, 12, 192, 192)
                 break
             else:
                 x = blk(x)
-        return output
+        return attn
 

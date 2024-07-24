@@ -5,6 +5,7 @@ import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from torchsummary import summary 
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -14,6 +15,7 @@ from original_vit_deit import deit_small_patch16_LS, deit_small_patch16
 from dynamic_vit import vit_models, vit_register_dynamic
 from dynamic_vit_viz import vit_register_dynamic_viz
 from custom_summary import custom_summary
+
 
 # Set random seed for reproducibility
 seed = 42
@@ -58,21 +60,27 @@ model = vit_register_dynamic(img_size=224,  patch_size=16, in_chans=3, num_class
 # model = vit_register_dynamic_viz(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
 #                              num_heads=6, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
 #                              drop_path_rate=0., init_scale=1e-4,
-#                              mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=0)
+#                              mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=None)
 
-
-custom_summary(model, (3, 224, 224))
 
 # Move the model to GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
+initial_state = model.state_dict()
+
+# Print model summary 
+custom_summary(model, (3, 224, 224))
+
+
+# model.train()  # Ensure the model is back to training mode
+# model.load_state_dict(initial_state)  # Restore initial state if needed
 
 # Define the loss function and optimizer
 loss_fn = nn.CrossEntropyLoss()
 optimizer = optim.AdamW(model.parameters(), lr=5e-4)
 
 # Training loop
-num_epochs = 100
+num_epochs = 200
 best_accuracy = 0.0
 best_model_path = 'best_model.pth'
 training_accuracies = []
