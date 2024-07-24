@@ -94,8 +94,8 @@ class Layer_scale_init_Block(nn.Module):
             init_values * torch.ones((dim)), requires_grad=True)
 
     def forward(self, x):
-        x = x + self.drop_path(self.gamma_1*self.attn(self.norm1(x))) + \
-            self.drop_path(self.gamma_1_1 * self.attn1(self.norm11(x)))
+        x = x + self.drop_path(self.gamma_1*self.attn(self.norm1(x))[0]) + \
+            self.drop_path(self.gamma_1_1 * self.attn1(self.norm11(x))[0])
         x = x + self.drop_path(self.gamma_2 * self.mlp(self.norm2(x))) + \
             self.drop_path(self.gamma_2_1 * self.mlp1(self.norm21(x)))
         return x
@@ -123,8 +123,8 @@ class Block_paralx2(nn.Module):
             in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
     def forward(self, x):
-        x = x + self.drop_path(self.attn(self.norm1(x))) + \
-            self.drop_path(self.attn1(self.norm11(x)))
+        x = x + self.drop_path(self.attn(self.norm1(x))[0]) + \
+            self.drop_path(self.attn1(self.norm11(x))[0])
         x = x + self.drop_path(self.mlp(self.norm2(x))) + \
             self.drop_path(self.mlp1(self.norm21(x)))
         return x
