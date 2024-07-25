@@ -39,9 +39,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
 # train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=2, worker_init_fn=lambda _: np.random.seed(seed))
 
-def train_model(model, train_loader, loss_fn, optimizer, num_epochs=200, device=device, best_model_path='best_model.pth'):
-    model.to(device)  # Ensure the model is on the right device
+def train_model(model, train_loader, loss_fn, optimizer, num_epochs, device):
     best_accuracy = 0.0
+    best_model_path = 'best_model.pth'
     training_accuracies = []
 
     for epoch in range(num_epochs):
@@ -49,9 +49,9 @@ def train_model(model, train_loader, loss_fn, optimizer, num_epochs=200, device=
         running_loss = 0.0
         correct = 0
         total = 0
-        
+
         # Create a progress bar for the current epoch
-        pbar = tqdm(enumerate(train_loader), total=len(train_loader), desc=f"Epoch {epoch+1}/{num_epochs}")
+        pbar = tqdm(enumerate(train_loader), total=len(train_loader), desc=f"Epoch {epoch + 1}/{num_epochs}")
 
         for i, (inputs, targets) in pbar:
             inputs, targets = inputs.to(device), targets.to(device)
@@ -67,19 +67,20 @@ def train_model(model, train_loader, loss_fn, optimizer, num_epochs=200, device=
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
+            running_loss += loss.item() * inputs.size(0)  # Accumulate loss
+            total += targets.size(0)  # Accumulate total number of targets
 
             # Calculate accuracy
             _, predicted = torch.max(outputs.data, 1)
-            total += targets.size(0)
             correct += (predicted == targets).sum().item()
 
             # Update the progress bar
-            pbar.set_postfix({'loss': running_loss / (i + 1), 'accuracy': 100 * correct / total})
+            pbar.set_postfix({'loss': running_loss / total, 'accuracy': 100 * correct / total})
 
         accuracy = 100 * correct / total
         training_accuracies.append(accuracy)
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {running_loss:.4f}, Accuracy: {accuracy:.2f}%")
+        epoch_loss = running_loss / total
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}, Accuracy: {accuracy:.2f}%")
 
         # Save the best model
         if accuracy > best_accuracy:
