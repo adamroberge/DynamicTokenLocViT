@@ -26,18 +26,20 @@ from augment import new_data_aug_generator
 import models
 import models_v2
 
+from dynamic_vit_viz import vit_register_dynamic_viz
+
 import utils
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('DeiT training and evaluation script', add_help=False)
+    parser = argparse.ArgumentParser('Dynamic Cls & Reg Token Location VIT', add_help=False)
     parser.add_argument('--batch-size', default=64, type=int)
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--bce-loss', action='store_true')
     parser.add_argument('--unscale-lr', action='store_true')
 
     # Model parameters
-    parser.add_argument('--model', default='deit_base_patch16_224', type=str, metavar='MODEL',
+    parser.add_argument('--model', default='vit_register_dynamic_viz', type=str, metavar='MODEL', # CHANGED DEFAULT
                         help='Name of model to train')
     parser.add_argument('--input-size', default=224, type=int, help='images input size')
 
@@ -154,8 +156,10 @@ def get_args_parser():
     parser.add_argument('--attn-only', action='store_true') 
     
     # Dataset parameters
-    parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', type=str,
-                        help='dataset path')
+    # parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', type=str,
+    #                     help='dataset path')
+    parser.add_argument('--data-path', default='./ImageNet1k', type=str,
+                    help='dataset path')
     parser.add_argument('--data-set', default='IMNET', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19'],
                         type=str, help='Image Net dataset path')
     parser.add_argument('--inat-category', default='name',
@@ -260,16 +264,21 @@ def main(args):
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
 
     print(f"Creating model: {args.model}")
-    model = create_model(
-        args.model,
-        pretrained=False,
-        num_classes=args.nb_classes,
-        drop_rate=args.drop,
-        drop_path_rate=args.drop_path,
-        drop_block_rate=None,
-        img_size=args.input_size
-    )
-
+    if args.model == 'vit_register_dynamic_viz':
+        model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=16, in_chans=3, num_classes=args.nb_classes,
+										embed_dim=384, depth=12, num_heads=6, mlp_ratio=4., drop_rate=args.drop,
+										attn_drop_rate=0., drop_path_rate=args.drop_path, init_scale=1e-4,
+										mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=None)
+    else:
+        model = create_model(
+			args.model,
+			pretrained=False,
+			num_classes=args.nb_classes,
+			drop_rate=args.drop,
+			drop_path_rate=args.drop_path,
+			drop_block_rate=None,
+			img_size=args.input_size
+		)
                     
     if args.finetune:
         if args.finetune.startswith('https'):
@@ -468,8 +477,6 @@ def main(args):
                      **{f'test_{k}': v for k, v in test_stats.items()},
                      'epoch': epoch,
                      'n_parameters': n_parameters}
-        
-        
         
         
         if args.output_dir and utils.is_main_process():
