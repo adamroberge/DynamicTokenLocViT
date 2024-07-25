@@ -12,7 +12,6 @@ import random
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from dynamic_vit_viz import vit_register_dynamic_viz
-from train_complete import train_model
 
 
 # Set random seed for reproducibility
@@ -69,9 +68,7 @@ if __name__ == '__main__':
     # Define the loss function and optimizer
     loss_fn = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=5e-4)
-    
-    # model = train_model(model, train_loader, loss_fn, optimizer, num_epochs=30, device=device)
- 
+     
     model.eval()  # Set the model to evaluation mode
     model.to(device)  # Move the model to the specified device (CPU or GPU)
 

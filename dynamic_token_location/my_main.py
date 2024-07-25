@@ -9,8 +9,8 @@ import numpy as np
 import random
 from dynamic_vit_viz import vit_register_dynamic_viz
 from dynamic_vit import vit_register_dynamic
-from train_complete import train_model
-from test_complete import test_model
+from my_train import train_model
+from my_test import test_model
 
 # Set random seed for reproducibility
 seed = 42
