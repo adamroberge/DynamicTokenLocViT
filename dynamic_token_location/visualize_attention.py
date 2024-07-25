@@ -12,7 +12,7 @@ import random
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from dynamic_vit_viz import vit_register_dynamic_viz
-from train_model import train_model
+from train_complete import train_model
 
 
 # Set random seed for reproducibility
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     
     # Define data transforms
     transform = pth_transforms.Compose([
-        pth_transforms.Resize(224),  # Resize images to 224x224
+        pth_transforms.Resize(32),  # Resize images to 224x224
         pth_transforms.ToTensor(),   # Convert images to tensor
         pth_transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),  # Normalize with mean and std
     ])
@@ -59,7 +59,7 @@ if __name__ == '__main__':
         break
 
     # Build the model
-    model = vit_register_dynamic_viz(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
+    model = vit_register_dynamic_viz(img_size=32,  patch_size=4, in_chans=3, num_classes=10, embed_dim=384, depth=12,
                                      num_heads=12, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
                                      drop_path_rate=0., init_scale=1e-4,
                                      mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=None)   
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     loss_fn = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=5e-4)
     
-    # model = train_model(model, train_loader, loss_fn, optimizer, num_epochs=150, device=device)
+    # model = train_model(model, train_loader, loss_fn, optimizer, num_epochs=30, device=device)
  
     model.eval()  # Set the model to evaluation mode
     model.to(device)  # Move the model to the specified device (CPU or GPU)
@@ -79,8 +79,8 @@ if __name__ == '__main__':
     img = img.to(device)
 
     # Compute feature map sizes
-    w_featmap = img.shape[-2] // 16  # Width of the feature map
-    h_featmap = img.shape[-1] // 16  # Height of the feature map
+    w_featmap = img.shape[-2] // 4  # Width of the feature map
+    h_featmap = img.shape[-1] // 4  # Height of the feature map
 
     # Get self-attention from the specified layer
     if args.layer_num >= 0:
