@@ -24,7 +24,7 @@ random.seed(seed)
 
 # Define data transforms with augmentation
 transform = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
+    transforms.RandomCrop(224, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.RandomRotation(15),
     transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
@@ -36,8 +36,8 @@ transform = transforms.Compose([
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load CIFAR-10 dataset
-train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=2, worker_init_fn=lambda _: np.random.seed(seed))
+# train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
+# train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=2, worker_init_fn=lambda _: np.random.seed(seed))
 
 def train_model(model, train_loader, loss_fn, optimizer, num_epochs=200, device=device, best_model_path='best_model.pth'):
     model.to(device)  # Ensure the model is on the right device
@@ -95,7 +95,7 @@ def train_model(model, train_loader, loss_fn, optimizer, num_epochs=200, device=
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy (%)')
     plt.grid()
-    plt.savefig('training_accuracy_over_epochs.pdf', format='pdf')
+    plt.savefig('training_accuracy_over_epochs_224.pdf', format='pdf')
     plt.show()
 
 # if __name__ == '__main__':

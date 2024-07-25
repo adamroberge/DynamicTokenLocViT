@@ -58,7 +58,7 @@ if __name__ == '__main__':
         break
 
     # Build the model
-    model = vit_register_dynamic_viz(img_size=32,  patch_size=4, in_chans=3, num_classes=10, embed_dim=384, depth=12,
+    model = vit_register_dynamic_viz(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
                                      num_heads=12, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
                                      drop_path_rate=0., init_scale=1e-4,
                                      mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=None)   
@@ -76,8 +76,8 @@ if __name__ == '__main__':
     img = img.to(device)
 
     # Compute feature map sizes
-    w_featmap = img.shape[-2] // 4  # Width of the feature map
-    h_featmap = img.shape[-1] // 4  # Height of the feature map
+    w_featmap = img.shape[-2] // 16  # Width of the feature map
+    h_featmap = img.shape[-1] // 16  # Height of the feature map
 
     # Get self-attention from the specified layer
     if args.layer_num >= 0:

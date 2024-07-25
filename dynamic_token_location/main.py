@@ -23,9 +23,6 @@ from engine import train_one_epoch, evaluate
 from samplers import RASampler
 from augment import new_data_aug_generator
 
-import models
-import models_v2
-
 from dynamic_vit_viz import vit_register_dynamic_viz
 
 import utils
@@ -34,7 +31,7 @@ import utils
 def get_args_parser():
     parser = argparse.ArgumentParser('Dynamic Cls & Reg Token Location VIT', add_help=False)
     parser.add_argument('--batch-size', default=64, type=int)
-    parser.add_argument('--epochs', default=300, type=int)
+    parser.add_argument('--epochs', default=100, type=int)
     parser.add_argument('--bce-loss', action='store_true')
     parser.add_argument('--unscale-lr', action='store_true')
 
@@ -42,7 +39,6 @@ def get_args_parser():
     parser.add_argument('--model', default='vit_register_dynamic_viz', type=str, metavar='MODEL', # CHANGED DEFAULT
                         help='Name of model to train')
     parser.add_argument('--input-size', default=224, type=int, help='images input size')
-
     parser.add_argument('--drop', type=float, default=0.0, metavar='PCT',
                         help='Dropout rate (default: 0.)')
     parser.add_argument('--drop-path', type=float, default=0.1, metavar='PCT',
@@ -156,10 +152,8 @@ def get_args_parser():
     parser.add_argument('--attn-only', action='store_true') 
     
     # Dataset parameters
-    # parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', type=str,
-    #                     help='dataset path')
-    parser.add_argument('--data-path', default='./ImageNet1k', type=str,
-                    help='dataset path')
+    parser.add_argument('--data-path', default='input/', type=str,
+                        help='dataset path')
     parser.add_argument('--data-set', default='IMNET', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19'],
                         type=str, help='Image Net dataset path')
     parser.add_argument('--inat-category', default='name',
