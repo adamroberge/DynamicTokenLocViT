@@ -83,8 +83,8 @@ import numpy as np
 import random
 from dynamic_vit_viz import vit_register_dynamic_viz
 from dynamic_vit import vit_register_dynamic
-from my_train import train_model
-from my_test import test_model
+from cifar_train import train_model
+from cifar_test import test_model
 from custom_summary import custom_summary
 
 # Set random seed for reproducibility
