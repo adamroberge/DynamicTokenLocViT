@@ -164,7 +164,7 @@ class vit_register_dynamic_viz(nn.Module):
                  drop_path_rate=0., norm_layer=nn.LayerNorm, global_pool=None,
                  block_layers=Block, Patch_layer=PatchEmbed, act_layer=nn.GELU,
                  Attention_block=Attention, Mlp_block=Mlp, dpr_constant=True, init_scale=1e-4,
-                 mlp_ratio_clstk=4.0, num_register_tokens=0, reg_pos=None, cls_pos=None, **kwargs):
+                 mlp_ratio_clstk=4.0, num_register_tokens=4, reg_pos=None, cls_pos=None, **kwargs):
         super().__init__()
 
         self.reg_pos = reg_pos
@@ -300,10 +300,52 @@ class vit_register_dynamic_viz(nn.Module):
                 x = torch.cat((x, reg_tokens), dim=1)
             if i == cls_pos:
                 x = torch.cat((cls_tokens, x), dim=1)
-            x = blk(x)
             if i == layer:
                 # Get the attention map from the specified layer
                 attn = blk(x, return_attention=True) # (1, 12, 192, 192)
                 break
+            x = blk(x)
         return attn
 
+    def get_register_token_attention(self, x, layer):
+        cls_pos = self.cls_pos
+        reg_pos = self.reg_pos
+        num_reg = self.num_register_tokens
+
+        x, cls_tokens, reg_tokens = self.prepare_tokens(x)
+
+        for i, blk in enumerate(self.blocks):
+            if i == reg_pos and reg_tokens is not None:
+                x = torch.cat((x, reg_tokens), dim=1)
+            if i == cls_pos:
+                x = torch.cat((cls_tokens, x), dim=1)
+            if i == layer:
+                # Get the attention map from the specified layer
+                attn = blk(x, return_attention=True)
+                reg_attn = attn[:, :, -num_reg:, :-num_reg]  # Extract attention from register tokens to patch tokens
+                break
+            x = blk(x)
+        return reg_attn
+    
+    def get_attention_map(self, x, layer):
+        cls_pos = self.cls_pos
+        reg_pos = self.reg_pos
+        num_reg = self.num_register_tokens
+
+        x, cls_tokens, reg_tokens = self.prepare_tokens(x)
+
+        for i, blk in enumerate(self.blocks):
+            if i == cls_pos:
+                x = torch.cat((cls_tokens, x), dim=1)
+            if i == reg_pos and reg_tokens is not None:
+                x = torch.cat((x, reg_tokens), dim=1)
+            if i == layer:
+                # Get the attention map from the specified layer
+                attn = blk(x, return_attention=True)
+                # Attention from cls token to patch tokens (excluding cls and reg tokens)
+                cls_attn = attn[:, :, 0, 1:self.num_patches+1]  # self.num_patches+1 because it's exclusive of end index
+                # Attention from register tokens to patch tokens (excluding cls and reg tokens)
+                reg_attn = attn[:, :, -num_reg:, 1:self.num_patches+1]  # self.num_patches+1 because it's exclusive of end index
+                break
+
+        return cls_attn, reg_attn
