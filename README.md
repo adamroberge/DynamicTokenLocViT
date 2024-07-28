@@ -1,6 +1,6 @@
-# Dynamic ViT Visualization
+# Dynamic Token Location for ViT Visualization
 
-This repository contains code for visualizing self-attention maps in Vision Transformers (ViT) with dynamic tokens, specifically class and register tokens. The code allows for visualizing attention maps from different layers of the ViT model on the CIFAR-10 dataset.
+This repository contains the implementation of a Vision Transformer (ViT) model with dynamic tokens, including class and register tokens. The basic structure was based on the [DeiT code from Facebook](https://github.com/facebookresearch/deit), and the project is built upon this code. The idea of this project was inspired by the papers ["Vision Transformers need Registers"](https://arxiv.org/abs/2309.16588) and ["Going Deeper with Image Transformers"](https://arxiv.org/abs/2103.17239).
 
 ## Table of Contents
 
