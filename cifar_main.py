@@ -49,7 +49,7 @@ train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_worker
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=2, worker_init_fn=lambda _: np.random.seed(seed))
 
 # Initialize the model
-model = vit_register_dynamic(img_size=224, patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
+model = vit_register_dynamic_viz(img_size=224, patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
                                  num_heads=6, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
                                  drop_path_rate=0., init_scale=1e-4,
                                  mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=6, reg_pos=0)
