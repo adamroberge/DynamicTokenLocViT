@@ -24,8 +24,7 @@ pip install -r requirements.txt
 
 1. **Clone the repository**:
     ```bash
-    git clone https://github.com/yourusername/your-repo-name.git
-    cd your-repo-name
+    git clone https://github.com/adamroberge/cls-register.git
     ```
 
 2. **Install the required packages**:
@@ -34,25 +33,24 @@ pip install -r requirements.txt
     ```
 
 3. **Prepare the dataset**:
-    Ensure that the CIFAR-10 dataset is available in the `./data/CIFAR10` directory. The dataset will be automatically downloaded if not already present.
+    Ensure that the CIFAR-10 or CIFAR-100 dataset is available in the `./data/CIFAR10` or `./data/CIFAR100` directory respectively. The dataset will be automatically downloaded if not already present.
 
 4. **Train the model**:
-    Train the Vision Transformer model on the CIFAR-10 dataset.
+    Train the Vision Transformer model on the CIFAR-10 or CIFAR-100 dataset.
+    More details on the training function are in ```cifar_train.py```
     ```bash
-    python train.py --data_path ./data/CIFAR10 --model_path ./models/best_model.pth
+    python cifar_main.py --data_path ./data/CIFAR10 --model_path ./models/best_model.pth
     ```
 
-5. **Evaluate the model**:
-    Evaluate the trained model on the CIFAR-10 test set.
+6. **Evaluate the model**:
+    Evaluate the trained model on the CIFAR-10 or CIFAR-100 test set.
+    More details on the training function are in ```cifar_test.py```
     ```bash
-    python evaluate.py --data_path ./data/CIFAR10 --model_path ./models/best_model.pth
+    python cifar_main.py --data_path ./data/CIFAR10 --model_path ./models/best_model.pth
     ```
 
-6. **Visualize Attention Maps**:
+8. **Visualize Attention Maps**:
     Visualize the self-attention maps of the model for a specific layer.
-    ```bash
-    python visualize_attention.py --model_path ./models/best_model.pth --layer_num 2 --output_dir ./attention_maps
-    ```
 
     **Options**:
     - `--model_path`: Path to the trained model file (default: `best_model.pth`).
@@ -70,12 +68,6 @@ pip install -r requirements.txt
 - `--layer_num`: Layer number to visualize attention from.
 - `--output_dir`: Directory to save the visualizations.
 
-
-## Example
-
-```bash
-python visualize_attention.py --model_path best_model.pth --layer_num 2 --output_dir ./visualizations
-```
 
 ### Model Architecture
 
