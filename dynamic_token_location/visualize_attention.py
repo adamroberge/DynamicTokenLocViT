@@ -28,10 +28,12 @@ cifar10_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog
 
 # Argument parser for command-line options
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Visualize Self-Attention maps')
+    parser = argparse.ArgumentParser('Visualize Self-Attention Maps')
     parser.add_argument("--output_dir", default='.', help='Path where to save visualizations.')
     parser.add_argument('--layer_num', default=7, type=int, help='Layer number to visualize attention from.')
     parser.add_argument('--model_path', default='best_model.pth', type=str, help='Path to the trained model.')
+    parser.add_argument('--cls_pos', default='0', type=int, help='Layer number where cls token is added.')
+    parser.add_argument('--reg_pos', default='0', type=int, help='Layer number where reg tokens are added.')
     
     args = parser.parse_args()
 
@@ -63,7 +65,7 @@ if __name__ == '__main__':
     model = vit_register_dynamic_viz(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
                                      num_heads=12, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
                                      drop_path_rate=0., init_scale=1e-4,
-                                     mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=0, reg_pos=5)   
+                                     mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=args.cls_pos, reg_pos=args.reg_pos)   
     
     model.load_state_dict(torch.load(args.model_path, map_location=device))
 
