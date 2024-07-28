@@ -254,16 +254,6 @@ class TrainableVitRegisterDynamicViz(nn.Module):
         return cls_attn, reg_attn_list
 
 
-
-# Define the model
-# model = TrainableVitRegisterDynamicViz(
-#     img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
-#     num_heads=12, mlp_ratio=4., qkv_bias=True, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
-#     drop_path_rate=0., norm_layer=torch.nn.LayerNorm, global_pool=None,
-#     block_layers=TrainableBlock, Patch_layer=PatchEmbed, act_layer=torch.nn.GELU,
-#     Attention_block=TrainableAttention, Mlp_block=Mlp, dpr_constant=True, init_scale=1e-4,
-#     mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=6, reg_pos=5,
-# )
 model = TrainableVitRegisterDynamicViz(
     img_size=224, patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
     num_heads=12, mlp_ratio=4., qkv_bias=True, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
