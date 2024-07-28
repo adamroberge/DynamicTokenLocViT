@@ -19,28 +19,26 @@ from timm.utils import NativeScaler, get_state_dict, ModelEma
 
 from datasets import build_dataset
 from engine import train_one_epoch, evaluate
-from losses import DistillationLoss
+# from losses import DistillationLoss
 from samplers import RASampler
 from augment import new_data_aug_generator
 
-import models
-import models_v2
+from dynamic_vit_viz import vit_register_dynamic_viz
 
 import utils
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('DeiT training and evaluation script', add_help=False)
+    parser = argparse.ArgumentParser('Dynamic Cls & Reg Token Location VIT', add_help=False)
     parser.add_argument('--batch-size', default=64, type=int)
-    parser.add_argument('--epochs', default=300, type=int)
+    parser.add_argument('--epochs', default=100, type=int)
     parser.add_argument('--bce-loss', action='store_true')
     parser.add_argument('--unscale-lr', action='store_true')
 
     # Model parameters
-    parser.add_argument('--model', default='deit_base_patch16_224', type=str, metavar='MODEL',
+    parser.add_argument('--model', default='vit_register_dynamic_viz', type=str, metavar='MODEL', # CHANGED DEFAULT
                         help='Name of model to train')
     parser.add_argument('--input-size', default=224, type=int, help='images input size')
-
     parser.add_argument('--drop', type=float, default=0.0, metavar='PCT',
                         help='Dropout rate (default: 0.)')
     parser.add_argument('--drop-path', type=float, default=0.1, metavar='PCT',
@@ -138,13 +136,13 @@ def get_args_parser():
     parser.add_argument('--mixup-mode', type=str, default='batch',
                         help='How to apply mixup/cutmix params. Per "batch", "pair", or "elem"')
 
-    # Distillation parameters
-    parser.add_argument('--teacher-model', default='regnety_160', type=str, metavar='MODEL',
-                        help='Name of teacher model to train (default: "regnety_160"')
-    parser.add_argument('--teacher-path', type=str, default='')
-    parser.add_argument('--distillation-type', default='none', choices=['none', 'soft', 'hard'], type=str, help="")
-    parser.add_argument('--distillation-alpha', default=0.5, type=float, help="")
-    parser.add_argument('--distillation-tau', default=1.0, type=float, help="")
+    # # Distillation parameters
+    # parser.add_argument('--teacher-model', default='regnety_160', type=str, metavar='MODEL',
+    #                     help='Name of teacher model to train (default: "regnety_160"')
+    # parser.add_argument('--teacher-path', type=str, default='')
+    # parser.add_argument('--distillation-type', default='none', choices=['none', 'soft', 'hard'], type=str, help="")
+    # parser.add_argument('--distillation-alpha', default=0.5, type=float, help="")
+    # parser.add_argument('--distillation-tau', default=1.0, type=float, help="")
     
     # * Cosub params
     parser.add_argument('--cosub', action='store_true') 
@@ -154,7 +152,7 @@ def get_args_parser():
     parser.add_argument('--attn-only', action='store_true') 
     
     # Dataset parameters
-    parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', type=str,
+    parser.add_argument('--data-path', default='input/', type=str,
                         help='dataset path')
     parser.add_argument('--data-set', default='IMNET', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19'],
                         type=str, help='Image Net dataset path')
@@ -193,8 +191,8 @@ def main(args):
 
     print(args)
 
-    if args.distillation_type != 'none' and args.finetune and not args.eval:
-        raise NotImplementedError("Finetuning with distillation not yet supported")
+    # if args.distillation_type != 'none' and args.finetune and not args.eval:
+    #     raise NotImplementedError("Finetuning with distillation not yet supported")
 
     device = torch.device(args.device)
 
@@ -260,16 +258,21 @@ def main(args):
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
 
     print(f"Creating model: {args.model}")
-    model = create_model(
-        args.model,
-        pretrained=False,
-        num_classes=args.nb_classes,
-        drop_rate=args.drop,
-        drop_path_rate=args.drop_path,
-        drop_block_rate=None,
-        img_size=args.input_size
-    )
-
+    if args.model == 'vit_register_dynamic_viz':
+        model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=16, in_chans=3, num_classes=args.nb_classes,
+										embed_dim=384, depth=12, num_heads=6, mlp_ratio=4., drop_rate=args.drop,
+										attn_drop_rate=0., drop_path_rate=args.drop_path, init_scale=1e-4,
+										mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=None)
+    else:
+        model = create_model(
+			args.model,
+			pretrained=False,
+			num_classes=args.nb_classes,
+			drop_rate=args.drop,
+			drop_path_rate=args.drop_path,
+			drop_block_rate=None,
+			img_size=args.input_size
+		)
                     
     if args.finetune:
         if args.finetune.startswith('https'):
@@ -368,29 +371,29 @@ def main(args):
         criterion = torch.nn.BCEWithLogitsLoss()
         
     teacher_model = None
-    if args.distillation_type != 'none':
-        assert args.teacher_path, 'need to specify teacher-path when using distillation'
-        print(f"Creating teacher model: {args.teacher_model}")
-        teacher_model = create_model(
-            args.teacher_model,
-            pretrained=False,
-            num_classes=args.nb_classes,
-            global_pool='avg',
-        )
-        if args.teacher_path.startswith('https'):
-            checkpoint = torch.hub.load_state_dict_from_url(
-                args.teacher_path, map_location='cpu', check_hash=True)
-        else:
-            checkpoint = torch.load(args.teacher_path, map_location='cpu')
-        teacher_model.load_state_dict(checkpoint['model'])
-        teacher_model.to(device)
-        teacher_model.eval()
+    # if args.distillation_type != 'none':
+    #     assert args.teacher_path, 'need to specify teacher-path when using distillation'
+    #     print(f"Creating teacher model: {args.teacher_model}")
+    #     teacher_model = create_model(
+    #         args.teacher_model,
+    #         pretrained=False,
+    #         num_classes=args.nb_classes,
+    #         global_pool='avg',
+    #     )
+    #     if args.teacher_path.startswith('https'):
+    #         checkpoint = torch.hub.load_state_dict_from_url(
+    #             args.teacher_path, map_location='cpu', check_hash=True)
+    #     else:
+    #         checkpoint = torch.load(args.teacher_path, map_location='cpu')
+    #     teacher_model.load_state_dict(checkpoint['model'])
+    #     teacher_model.to(device)
+    #     teacher_model.eval()
 
-    # wrap the criterion in our custom DistillationLoss, which
-    # just dispatches to the original criterion if args.distillation_type is 'none'
-    criterion = DistillationLoss(
-        criterion, teacher_model, args.distillation_type, args.distillation_alpha, args.distillation_tau
-    )
+    # # wrap the criterion in our custom DistillationLoss, which
+    # # just dispatches to the original criterion if args.distillation_type is 'none'
+    # criterion = DistillationLoss(
+    #     criterion, teacher_model, args.distillation_type, args.distillation_alpha, args.distillation_tau
+    # )
 
     output_dir = Path(args.output_dir)
     if args.resume:
@@ -468,8 +471,6 @@ def main(args):
                      **{f'test_{k}': v for k, v in test_stats.items()},
                      'epoch': epoch,
                      'n_parameters': n_parameters}
-        
-        
         
         
         if args.output_dir and utils.is_main_process():
