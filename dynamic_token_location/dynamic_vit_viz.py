@@ -290,7 +290,7 @@ class vit_register_dynamic_viz(nn.Module):
                 # return attention of the last block
                 return blk(x, return_attention=True)
 
-    def get_selfattention(self, x, layer):
+    def get_selfattention(self, x, layer): # Only cls token
         cls_pos = self.cls_pos
         reg_pos = self.reg_pos
         num_reg = self.num_register_tokens
@@ -304,7 +304,7 @@ class vit_register_dynamic_viz(nn.Module):
                 x = torch.cat((cls_tokens, x), dim=1)
             if i == layer:
                 # Get the attention map from the specified layer
-                attn = blk(x, return_attention=True) # (1, 12, 192, 192)
+                attn = blk(x, return_attention=True) # (1, 12, 197, 197)
                 break
             x = blk(x)
         return attn
@@ -329,7 +329,7 @@ class vit_register_dynamic_viz(nn.Module):
             x = blk(x)
         return reg_attn
     
-    def get_attention_map(self, x, layer):
+    def get_attention_map(self, x, layer): # Both cls and reg tokens
         cls_pos = self.cls_pos
         reg_pos = self.reg_pos
         num_reg = self.num_register_tokens
@@ -343,11 +343,11 @@ class vit_register_dynamic_viz(nn.Module):
                 x = torch.cat((x, reg_tokens), dim=1)
             if i == layer:
                 # Get the attention map from the specified layer
-                attn = blk(x, return_attention=True)
-                # Attention from cls token to patch tokens (excluding cls and reg tokens)
+                attn = blk(x, return_attention=True) # [1, 12, 201, 201]
+                # Attention from cls token to patch tokens [1, 12, 1, 196]
                 cls_attn = attn[:, :, 0, 1:self.num_patches+1]  # self.num_patches+1 because it's exclusive of end index
-                # Attention from register tokens to patch tokens (excluding cls and reg tokens)
-                reg_attn = attn[:, :, -num_reg:, 1:self.num_patches+1]  # self.num_patches+1 because it's exclusive of end index
+                # Attention from register tokens to patch tokens 
+                reg_attn_list = [attn[:, :, -num_reg + i, 1:self.num_patches+1] for i in range(num_reg)]  # List of attention maps for each register token
                 break
 
-        return cls_attn, reg_attn
+        return cls_attn, reg_attn_list

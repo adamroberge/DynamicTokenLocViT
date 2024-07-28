@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn 
 import torch.optim as optim
 import torchvision
-from torchvision.datasets import CIFAR10, CIFAR100
+from torchvision.datasets import CIFAR10
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms as pth_transforms
 import numpy as np
@@ -12,6 +12,7 @@ import random
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from dynamic_vit_viz import vit_register_dynamic_viz
+
 
 # Set random seed for reproducibility
 seed = 42
@@ -85,81 +86,71 @@ if __name__ == '__main__':
     if args.layer_num < 0:
         raise ValueError(f"The layer you are trying to print the attention map from ({args.layer_num}) should be a positive number smaller than {model.depth}")
     elif args.layer_num < 12:
-        cls_attentions, reg_attentions_list = model.get_attention_map(img, args.layer_num)
+        attentions = model.get_selfattention(img, args.layer_num)
     else:
         raise ValueError(f"The layer you are tryting to print the attention map from ({args.layer_num}) is bigger than the model's depth.")
+        # attentions = model.get_selfattention(img, len(model.blocks) - 1)
 
-    nh = cls_attentions.shape[1]  # Number of heads
+    nh = attentions.shape[1]  # Number of heads
 
     # Print the shape before and after each operation for debugging
-    print(f"Original class attentions shape: {cls_attentions.shape}")
-    print(f"Original register attentions shape: {len(reg_attentions_list)}")
+    print(f"Original attentions shape: {attentions.shape}")
+    # attentions.shape: [1, nh, N, N] = [1, 12, 197, 197]
 
-    # Reshape class attentions
-    cls_attentions = cls_attentions[0].reshape(nh, w_featmap, h_featmap)
-    print(f"Class attentions shape after reshaping: {cls_attentions.shape}")
+    # Keep only the output patch attention and reshape
+    # We are slicing attentions to keep only patch tokens (not the class token)
+    attentions = attentions[0, :, 0, 1:]
+    print(f"Shape after slicing: {attentions.shape}")
+    # attentions.shape: [nh, N-1] = [12, 196]
 
-    # Upsample the class attention maps to the input image size
-    cls_attentions = torch.nn.functional.interpolate(cls_attentions.unsqueeze(0), scale_factor=16, mode="nearest")[0].cpu().detach().numpy()
-    print(f"Class attentions shape after upsampling: {cls_attentions.shape}")
+    # Ensure the total number of elements matches the expected size
+    expected_size = nh * w_featmap * h_featmap
+    actual_size = attentions.numel()
+    print(f"Expected size: {expected_size}, Actual size: {actual_size}")
+    # expected_size: nh * w_featmap * h_featmap = 12 * 14 * 14 = 2352
+    # actual_size: numel of attentions = nh * (N-1) = 12 * 196 = 2352
 
-    # Process register attentions
-    for i in range(len(reg_attentions_list)):
-        reg_attentions_list[i] = reg_attentions_list[i][0].reshape(nh, w_featmap, h_featmap)
-        reg_attentions_list[i] = torch.nn.functional.interpolate(reg_attentions_list[i].unsqueeze(0), scale_factor=16, mode="nearest")[0].cpu().detach().numpy()
-        print(f"Register attentions shape after upsampling for token {i+1}: {reg_attentions_list[i].shape}")
+    if actual_size == expected_size:
+        attentions = attentions.reshape(nh, w_featmap, h_featmap)
+        # attentions.shape: [nh, w_featmap, h_featmap] = [12, 14, 14]
+    else:
+        raise ValueError(f"The number of elements in the attention maps ({actual_size}) does not match the expected size ({expected_size}).")
+
+    # Print shape after reshaping
+    print(f"Shape after reshaping: {attentions.shape}")
+    # attentions.shape: [nh, w_featmap, h_featmap] = [12, 14, 14]
+
+    # Upsample the attention maps to the input image size
+    attentions = torch.nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=16, mode="nearest")[0].cpu().detach().numpy()
+    print(f"Shape after upsampling: {attentions.shape}")
+    # attentions.shape: [nh, img_size, img_size] = [12, 224, 224]
 
     # Save attention heatmaps in a single PDF
     with PdfPages(os.path.join(args.output_dir, "attention_maps.pdf")) as pdf:
-        # Save class attentions
+        # Create a grid for the plots
         fig, axes = plt.subplots(nrows=5, ncols=3, figsize=(15, 20))
 
         # Plot the original image
         ax = axes[0, 0]
         ax.imshow(np.transpose(images[num_img].cpu().numpy(), (1, 2, 0)))
         ax.axis('off')
-        ax.set_title(f'Original Image: {label_name} at layer {args.layer_num}')
+        ax.set_title(f'Original Image: {label_name}')
 
         for ax in axes[0, 1:]:
             ax.axis('off')
 
-        # Plot the class attention maps
+        # Plot the attention maps
         for j in range(nh):
             row = (j + 3) // 3  # Calculate the row index (start from row 1)
             col = (j + 3) % 3   # Calculate the column index
             ax = axes[row, col]
-            ax.imshow(cls_attentions[j], cmap='viridis')
+            ax.imshow(attentions[j], cmap='viridis')
             ax.axis('off')
-            ax.set_title(f'Class Token Attention Head {j+1}')
+            ax.set_title(f'Attention Head {j+1}')
 
         # Save the figure to the PDF
         pdf.savefig(fig, bbox_inches='tight')
         plt.close(fig)
 
-        # Save register attentions
-        for i, reg_attentions in enumerate(reg_attentions_list):
-            fig, axes = plt.subplots(nrows=5, ncols=3, figsize=(15, 20))
-
-            # Plot the original image
-            ax = axes[0, 0]
-            ax.imshow(np.transpose(images[num_img].cpu().numpy(), (1, 2, 0)))
-            ax.axis('off')
-            ax.set_title(f'Original Image: {label_name} at layer {args.layer_num}')
-
-            for ax in axes[0, 1:]:
-                ax.axis('off')
-
-            # Plot the register attention maps
-            for j in range(nh):
-                row = (j + 3) // 3  # Calculate the row index (start from row 1)
-                col = (j + 3) % 3   # Calculate the column index
-                ax = axes[row, col]
-                ax.imshow(reg_attentions[j], cmap='viridis')
-                ax.axis('off')
-                ax.set_title(f'Register Token {i+1} Attention Head {j+1}')
-
-            # Save the figure to the PDF
-            pdf.savefig(fig, bbox_inches='tight')
-            plt.close(fig)
-
     print(f"All attention heads saved in {os.path.join(args.output_dir, 'attention_maps.pdf')}.")
+
