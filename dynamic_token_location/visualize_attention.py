@@ -25,12 +25,13 @@
 
 # # Global variables 
 # num_img = 60
+# cifar10_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 
 # # Argument parser for command-line options
 # if __name__ == '__main__':
 #     parser = argparse.ArgumentParser('Visualize Self-Attention maps')
 #     parser.add_argument("--output_dir", default='.', help='Path where to save visualizations.')
-#     parser.add_argument('--layer_num', default=-1, type=int, help='Layer number to visualize attention from.')
+#     parser.add_argument('--layer_num', default=2, type=int, help='Layer number to visualize attention from.')
 #     parser.add_argument('--model_path', default='best_model.pth', type=str, help='Path to the trained model.')
     
 #     args = parser.parse_args()
@@ -53,8 +54,10 @@
 #     test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=2, worker_init_fn=lambda _: np.random.seed(seed))
 
 #     # Get one image from the test dataset
-#     for images, _ in test_loader:
+#     for images, labels in test_loader:
 #         img = images[num_img].unsqueeze(0)  # Extract an image and add batch dimension
+#         label = labels[num_img].item()  # Extract the label of the image
+#         label_name = cifar10_classes[label]  # Get the class name
 #         break
 
 #     # Build the model
@@ -68,7 +71,7 @@
 #     # Define the loss function and optimizer
 #     loss_fn = nn.CrossEntropyLoss()
 #     optimizer = optim.AdamW(model.parameters(), lr=5e-4)
-     
+    
 #     model.eval()  # Set the model to evaluation mode
 #     model.to(device)  # Move the model to the specified device (CPU or GPU)
 
@@ -76,14 +79,17 @@
 #     img = img.to(device)
 
 #     # Compute feature map sizes
-#     w_featmap = img.shape[-2] // 16  # Width of the feature map
-#     h_featmap = img.shape[-1] // 16  # Height of the feature map
+#     w_featmap = img.shape[-2] // model.patch_size  # Width of the feature map
+#     h_featmap = img.shape[-1] // model.patch_size  # Height of the feature map
 
 #     # Get self-attention from the specified layer
-#     if args.layer_num >= 0:
+#     if args.layer_num < 0:
+#         raise ValueError(f"The layer you are trying to print the attention map from ({args.layer_num}) should be a positive number smaller than {model.depth}")
+#     elif args.layer_num < 12:
 #         attentions = model.get_selfattention(img, args.layer_num)
 #     else:
-#         attentions = model.get_selfattention(img, len(model.blocks) - 1)
+#         raise ValueError(f"The layer you are tryting to print the attention map from ({args.layer_num}) is bigger than the model's depth.")
+#         # attentions = model.get_selfattention(img, len(model.blocks) - 1)
 
 #     nh = attentions.shape[1]  # Number of heads
 
@@ -128,7 +134,7 @@
 #         ax = axes[0, 0]
 #         ax.imshow(np.transpose(images[num_img].cpu().numpy(), (1, 2, 0)))
 #         ax.axis('off')
-#         ax.set_title('Original Image')
+#         ax.set_title(f'Original Image: {label_name}')
 
 #         for ax in axes[0, 1:]:
 #             ax.axis('off')
@@ -147,6 +153,7 @@
 #         plt.close(fig)
 
 #     print(f"All attention heads saved in {os.path.join(args.output_dir, 'attention_maps.pdf')}.")
+
 
 
 import os
@@ -182,7 +189,7 @@ cifar10_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Visualize Self-Attention maps')
     parser.add_argument("--output_dir", default='.', help='Path where to save visualizations.')
-    parser.add_argument('--layer_num', default=-1, type=int, help='Layer number to visualize attention from.')
+    parser.add_argument('--layer_num', default=2, type=int, help='Layer number to visualize attention from.')
     parser.add_argument('--model_path', default='best_model.pth', type=str, help='Path to the trained model.')
     
     args = parser.parse_args()
@@ -222,7 +229,7 @@ if __name__ == '__main__':
     # Define the loss function and optimizer
     loss_fn = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=5e-4)
-     
+    
     model.eval()  # Set the model to evaluation mode
     model.to(device)  # Move the model to the specified device (CPU or GPU)
 
@@ -230,14 +237,17 @@ if __name__ == '__main__':
     img = img.to(device)
 
     # Compute feature map sizes
-    w_featmap = img.shape[-2] // 16  # Width of the feature map
-    h_featmap = img.shape[-1] // 16  # Height of the feature map
+    w_featmap = img.shape[-2] // model.patch_size  # Width of the feature map
+    h_featmap = img.shape[-1] // model.patch_size  # Height of the feature map
 
     # Get self-attention from the specified layer
-    if args.layer_num >= 0:
+    if args.layer_num < 0:
+        raise ValueError(f"The layer you are trying to print the attention map from ({args.layer_num}) should be a positive number smaller than {model.depth}")
+    elif args.layer_num < 12:
         attentions = model.get_selfattention(img, args.layer_num)
     else:
-        attentions = model.get_selfattention(img, len(model.blocks) - 1)
+        raise ValueError(f"The layer you are tryting to print the attention map from ({args.layer_num}) is bigger than the model's depth.")
+        # attentions = model.get_selfattention(img, len(model.blocks) - 1)
 
     nh = attentions.shape[1]  # Number of heads
 

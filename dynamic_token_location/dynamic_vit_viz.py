@@ -169,7 +169,9 @@ class vit_register_dynamic_viz(nn.Module):
 
         self.reg_pos = reg_pos
         self.cls_pos = cls_pos
-
+        
+        self.patch_size = patch_size
+        self.depth = depth
         self.dropout_rate = drop_rate
 
         self.num_classes = num_classes
