@@ -64,6 +64,70 @@ pip install -r requirements.txt
     python visualize_attention.py --model_path ./models/best_model.pth --layer_num 5 --output_dir ./attention_maps
     ```
 
+## Arguments
+
+- `--model_path`: Path to the trained model.
+- `--layer_num`: Layer number to visualize attention from.
+- `--output_dir`: Directory to save the visualizations.
 
 
+## Example
+
+```bash
+python visualize_attention.py --model_path best_model.pth --layer_num 2 --output_dir ./visualizations
+```
+
+### Model Architecture
+
+The Vision Transformer (ViT) model used in this repository includes dynamic tokens, specifically class and register tokens. The register tokens are added at a specified layer and influence the subsequent layers.
+
+
+## `vit_register_dynamic_viz` Class
+
+The `vit_register_dynamic_viz` class extends the standard ViT model to include dynamic tokens.
+
+### Key Parameters:
+- `img_size`: Size of the input images.
+- `patch_size`: Size of the patches.
+- `num_classes`: Number of output classes.
+- `embed_dim`: Embedding dimension.
+- `depth`: Number of transformer layers.
+- `num_heads`: Number of attention heads.
+- `mlp_ratio`: MLP ratio.
+- `num_register_tokens`: Number of register tokens.
+- `cls_pos`: Layer to add the class token.
+- `reg_pos`: Layer to add the register tokens.
+
+
+## Visualization
+
+The visualization script extracts self-attention maps from the specified layer and saves them as a PDF. The class token's attention map and each register token's attention map are saved on different pages.
+
+
+## Example Output
+
+The attention maps are saved in a PDF file in the specified output directory. Each page includes the original image and the attention maps for the class and register tokens.
+
+
+## Important Notes
+
+- Ensure that the layer number specified for visualization is valid and does not exceed the model's depth.
+- The visualization script will raise an error if attempting to access register tokens from a layer before they are added.
+
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request for any improvements or new features.
+
+### Steps to Contribute
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature-branch`).
+3. Commit your changes (`git commit -am 'Add new feature'`).
+4. Push to the branch (`git push origin feature-branch`).
+5. Open a pull request.
+
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
 
