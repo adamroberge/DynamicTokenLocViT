@@ -30,7 +30,7 @@ cifar10_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Visualize Self-Attention maps')
     parser.add_argument("--output_dir", default='.', help='Path where to save visualizations.')
-    parser.add_argument('--layer_num', default=2, type=int, help='Layer number to visualize attention from.')
+    parser.add_argument('--layer_num', default=7, type=int, help='Layer number to visualize attention from.')
     parser.add_argument('--model_path', default='best_model.pth', type=str, help='Path to the trained model.')
     
     args = parser.parse_args()
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     model = vit_register_dynamic_viz(img_size=224,  patch_size=16, in_chans=3, num_classes=10, embed_dim=384, depth=12,
                                      num_heads=12, mlp_ratio=4., drop_rate=0., attn_drop_rate=0.,
                                      drop_path_rate=0., init_scale=1e-4,
-                                     mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=0, reg_pos=None)   
+                                     mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=0, reg_pos=5)   
     
     model.load_state_dict(torch.load(args.model_path, map_location=device))
 
@@ -84,10 +84,13 @@ if __name__ == '__main__':
     # Get self-attention from the specified layer
     if args.layer_num < 0:
         raise ValueError(f"The layer you are trying to print the attention map from ({args.layer_num}) should be a positive number smaller than {model.depth}")
-    elif args.layer_num < 12:
+    elif args.layer_num >= model.reg_pos and args.layer_num < model.depth:
         cls_attentions, reg_attentions_list = model.get_attention_map(img, args.layer_num)
+    elif args.layer_num < model.reg_pos:
+        cls_attentions, _ = model.get_attention_map(img, args.layer_num)
+        reg_attentions_list = []
     else:
-        raise ValueError(f"The layer you are tryting to print the attention map from ({args.layer_num}) is bigger than the model's depth.")
+        raise ValueError(f"The layer you are trying to print the attention map from ({args.layer_num}) is bigger than the model's depth.")
 
     nh = cls_attentions.shape[1]  # Number of heads
 
@@ -144,7 +147,7 @@ if __name__ == '__main__':
             ax = axes[0, 0]
             ax.imshow(np.transpose(images[num_img].cpu().numpy(), (1, 2, 0)))
             ax.axis('off')
-            ax.set_title(f'Original Image: {label_name} at layer {args.layer_num}')
+            ax.set_title(f'Original Image: {label_name} at layer {args.layer_num} \n Register tokens added at layer {model.reg_pos}')
 
             for ax in axes[0, 1:]:
                 ax.axis('off')

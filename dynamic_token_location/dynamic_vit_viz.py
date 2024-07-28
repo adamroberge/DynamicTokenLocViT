@@ -334,6 +334,9 @@ class vit_register_dynamic_viz(nn.Module):
         reg_pos = self.reg_pos
         num_reg = self.num_register_tokens
 
+        if layer < reg_pos:
+            raise ValueError(f"Cannot access register tokens at layer {layer} since they are added at layer {reg_pos}")
+
         x, cls_tokens, reg_tokens = self.prepare_tokens(x)
 
         for i, blk in enumerate(self.blocks):
