@@ -12,6 +12,8 @@ import random
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from dynamic_vit_viz import vit_register_dynamic_viz
+from custom_summary import custom_summary
+
 
 # Set random seed for reproducibility
 seed = 42
@@ -30,10 +32,10 @@ cifar10_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Visualize Self-Attention Maps')
     parser.add_argument("--output_dir", default='.', help='Path where to save visualizations.')
-    parser.add_argument('--layer_num', default=7, type=int, help='Layer number to visualize attention from.')
     parser.add_argument('--model_path', default='best_model.pth', type=str, help='Path to the trained model.')
-    parser.add_argument('--cls_pos', default='0', type=int, help='Layer number where cls token is added.')
-    parser.add_argument('--reg_pos', default='0', type=int, help='Layer number where reg tokens are added.')
+    parser.add_argument('--layer_num', default=5, type=int, help='Layer number to visualize attention from.')
+    parser.add_argument('--cls_pos', default=2, type=int, help='Layer number where cls token is added.')
+    parser.add_argument('--reg_pos', default=3, type=int, help='Layer number where reg tokens are added.')
     
     args = parser.parse_args()
 
@@ -68,6 +70,8 @@ if __name__ == '__main__':
                                      mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=args.cls_pos, reg_pos=args.reg_pos)   
     
     model.load_state_dict(torch.load(args.model_path, map_location=device))
+
+    custom_summary(model, (3, 224, 224))
 
     # Define the loss function and optimizer
     loss_fn = nn.CrossEntropyLoss()
@@ -123,7 +127,7 @@ if __name__ == '__main__':
         ax = axes[0, 0]
         ax.imshow(np.transpose(images[num_img].cpu().numpy(), (1, 2, 0)))
         ax.axis('off')
-        ax.set_title(f'Original Image: {label_name} at layer {args.layer_num}')
+        ax.set_title(f'Original Image: {label_name} at layer {args.layer_num} \n Class token added at layer {model.cls_pos}')
 
         for ax in axes[0, 1:]:
             ax.axis('off')

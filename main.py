@@ -36,9 +36,10 @@ def get_args_parser():
     parser.add_argument('--unscale-lr', action='store_true')
 
     # Model parameters
-    parser.add_argument('--model', default='vit_register_dynamic_viz', type=str, metavar='MODEL', # CHANGED DEFAULT
+    parser.add_argument('--model', default='vit_register_dynamic_viz', type=str, metavar='MODEL', 
                         help='Name of model to train')
     parser.add_argument('--input-size', default=224, type=int, help='images input size')
+    parser.add_argument('--patch-size', default=16, type=int, help='input patch size')
     parser.add_argument('--drop', type=float, default=0.0, metavar='PCT',
                         help='Dropout rate (default: 0.)')
     parser.add_argument('--drop-path', type=float, default=0.1, metavar='PCT',
@@ -152,9 +153,9 @@ def get_args_parser():
     parser.add_argument('--attn-only', action='store_true') 
     
     # Dataset parameters
-    parser.add_argument('--data-path', default='input/', type=str,
+    parser.add_argument('--data-path', default='/home/adam/data/in1k', type=str,
                         help='dataset path')
-    parser.add_argument('--data-set', default='IMNET', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19'],
+    parser.add_argument('--data-set', default='in1k', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19', 'in1k'],
                         type=str, help='Image Net dataset path')
     parser.add_argument('--inat-category', default='name',
                         choices=['kingdom', 'phylum', 'class', 'order', 'supercategory', 'family', 'genus', 'name'],
@@ -259,7 +260,7 @@ def main(args):
 
     print(f"Creating model: {args.model}")
     if args.model == 'vit_register_dynamic_viz':
-        model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=16, in_chans=3, num_classes=args.nb_classes,
+        model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=args.patch_size, in_chans=3, num_classes=args.nb_classes,
 										embed_dim=384, depth=12, num_heads=6, mlp_ratio=4., drop_rate=args.drop,
 										attn_drop_rate=0., drop_path_rate=args.drop_path, init_scale=1e-4,
 										mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=None)
