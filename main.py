@@ -19,13 +19,17 @@ from timm.utils import NativeScaler, get_state_dict, ModelEma
 
 from datasets import build_dataset
 from engine import train_one_epoch, evaluate
-# from losses import DistillationLoss
+from losses import DistillationLoss
 from samplers import RASampler
 from augment import new_data_aug_generator
 
 from dynamic_vit_viz import vit_register_dynamic_viz
 
 import utils
+import torch.distributed as dist
+import torch.multiprocessing as mp
+import os
+
 
 
 def get_args_parser():
@@ -40,6 +44,7 @@ def get_args_parser():
                         help='Name of model to train')
     parser.add_argument('--input-size', default=224, type=int, help='images input size')
     parser.add_argument('--patch-size', default=16, type=int, help='input patch size')
+    parser.add_argument('--nb-classes', default=1000, type=int, help='number of classes')
     parser.add_argument('--drop', type=float, default=0.0, metavar='PCT',
                         help='Dropout rate (default: 0.)')
     parser.add_argument('--drop-path', type=float, default=0.1, metavar='PCT',
@@ -155,13 +160,13 @@ def get_args_parser():
     # Dataset parameters
     parser.add_argument('--data-path', default='/home/adam/data/in1k', type=str,
                         help='dataset path')
-    parser.add_argument('--data-set', default='in1k', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19', 'in1k'],
+    parser.add_argument('--data-set', default='in1k', choices=['CIFAR10', 'CIFAR100', 'IMNET', 'INAT', 'INAT19', 'in1k'],
                         type=str, help='Image Net dataset path')
     parser.add_argument('--inat-category', default='name',
                         choices=['kingdom', 'phylum', 'class', 'order', 'supercategory', 'family', 'genus', 'name'],
                         type=str, help='semantic granularity')
 
-    parser.add_argument('--output_dir', default='',
+    parser.add_argument('--output_dir', default='result/',
                         help='path where to save, empty for no saving')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
@@ -180,23 +185,31 @@ def get_args_parser():
     parser.set_defaults(pin_mem=True)
 
     # distributed training parameters
-    parser.add_argument('--distributed', action='store_true', default=False, help='Enabling distributed training')
-    parser.add_argument('--world_size', default=1, type=int,
-                        help='number of distributed processes')
+    parser.add_argument('--distributed', action='store_true', default=False, help='Enabling distributed training')    
+    parser.add_argument('--world_size', default=1, type=int, help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+    parser.add_argument('--rank', default=0, type=int, help='rank of the current process')
+    parser.add_argument('--gpu', default=[0, 1, 2, 3], type=list, help='GPU id to use.')
     return parser
 
 
+
 def main(args):
-    utils.init_distributed_mode(args)
+    
+    if args.distributed:
+        torch.distributed.init_process_group(backend='nccl', init_method=args.dist_url, world_size=args.world_size, rank=args.rank)
+        local_rank = int(os.environ["LOCAL_RANK"])
+        torch.cuda.set_device(local_rank)
+        device = torch.device(f'cuda:{local_rank}')
+        args.world_size = torch.distributed.get_world_size()
+        args.rank = torch.distributed.get_rank()
+        print(f"Training in distributed mode with multiple processes, 1 GPU per process. Process rank: {args.rank}, world size: {args.world_size}, local rank: {local_rank}")
+    else:
+        device = torch.device(args.device)
+        print("Training with a single process on 1 GPU.")
 
-    print(args)
-
-    # if args.distillation_type != 'none' and args.finetune and not args.eval:
-    #     raise NotImplementedError("Finetuning with distillation not yet supported")
-
-    device = torch.device(args.device)
-
+    print(args)    
+    
     # fix the seed for reproducibility
     seed = args.seed + utils.get_rank()
     torch.manual_seed(seed)
@@ -274,7 +287,15 @@ def main(args):
 			drop_block_rate=None,
 			img_size=args.input_size
 		)
-                    
+
+    # Move model to the correct device
+    model.to(device)
+
+    # Wrap the model with DDP
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], find_unused_parameters=True)
+
+    model_without_ddp = model.module if args.distributed else model              
     if args.finetune:
         if args.finetune.startswith('https'):
             checkpoint = torch.hub.load_state_dict_from_url(
@@ -346,7 +367,7 @@ def main(args):
 
     model_without_ddp = model
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=args.gpu)
         model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('number of params:', n_parameters)
@@ -368,10 +389,10 @@ def main(args):
     else:
         criterion = torch.nn.CrossEntropyLoss()
         
-    if args.bce_loss:
-        criterion = torch.nn.BCEWithLogitsLoss()
+    # if args.bce_loss:
+    #     criterion = torch.nn.BCEWithLogitsLoss()
         
-    teacher_model = None
+    # teacher_model = None
     # if args.distillation_type != 'none':
     #     assert args.teacher_path, 'need to specify teacher-path when using distillation'
     #     print(f"Creating teacher model: {args.teacher_model}")
@@ -484,7 +505,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('DeiT training and evaluation script', parents=[get_args_parser()])
+    parser = argparse.ArgumentParser('DynamicTokenLocViT training and evaluation script', parents=[get_args_parser()])
     args = parser.parse_args()
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
