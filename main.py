@@ -29,13 +29,14 @@ import utils
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import os
+from custom_summary import custom_summary
 
 
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Dynamic Cls & Reg Token Location VIT', add_help=False)
-    parser.add_argument('--batch-size', default=64, type=int)
-    parser.add_argument('--epochs', default=100, type=int)
+    parser.add_argument('--batch-size', default=512, type=int)
+    parser.add_argument('--epochs', default=400, type=int)
     parser.add_argument('--bce-loss', action='store_true')
     parser.add_argument('--unscale-lr', action='store_true')
 
@@ -52,12 +53,12 @@ def get_args_parser():
 
     parser.add_argument('--model-ema', action='store_true')
     parser.add_argument('--no-model-ema', action='store_false', dest='model_ema')
-    parser.set_defaults(model_ema=True)
+    parser.set_defaults(model_ema=False)
     parser.add_argument('--model-ema-decay', type=float, default=0.99996, help='')
     parser.add_argument('--model-ema-force-cpu', action='store_true', default=False, help='')
 
     # Optimizer parameters
-    parser.add_argument('--opt', default='adamw', type=str, metavar='OPTIMIZER',
+    parser.add_argument('--opt', default='lamb', type=str, metavar='OPTIMIZER',
                         help='Optimizer (default: "adamw"')
     parser.add_argument('--opt-eps', default=1e-8, type=float, metavar='EPSILON',
                         help='Optimizer Epsilon (default: 1e-8)')
@@ -67,13 +68,13 @@ def get_args_parser():
                         help='Clip gradient norm (default: None, no clipping)')
     parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                         help='SGD momentum (default: 0.9)')
-    parser.add_argument('--weight-decay', type=float, default=0.05,
-                        help='weight decay (default: 0.05)')
+    parser.add_argument('--weight-decay', type=float, default=0.02,
+                        help='weight decay (default: 0.02)')
     # Learning rate schedule parameters
     parser.add_argument('--sched', default='cosine', type=str, metavar='SCHEDULER',
                         help='LR scheduler (default: "cosine"')
-    parser.add_argument('--lr', type=float, default=5e-4, metavar='LR',
-                        help='learning rate (default: 5e-4)')
+    parser.add_argument('--lr', type=float, default=3e-3, metavar='LR',
+                        help='learning rate (default: 3e-3)')
     parser.add_argument('--lr-noise', type=float, nargs='+', default=None, metavar='pct, pct',
                         help='learning rate noise on/off epoch percentages')
     parser.add_argument('--lr-noise-pct', type=float, default=0.67, metavar='PERCENT',
@@ -160,7 +161,7 @@ def get_args_parser():
     # Dataset parameters
     parser.add_argument('--data-path', default='/home/adam/data/in1k', type=str,
                         help='dataset path')
-    parser.add_argument('--data-set', default='in1k', choices=['CIFAR10', 'CIFAR100', 'IMNET', 'INAT', 'INAT19', 'in1k'],
+    parser.add_argument('--data-set', default='IMNET', choices=['CIFAR10', 'CIFAR100', 'IMNET', 'INAT', 'INAT19', 'in1k'],
                         type=str, help='Image Net dataset path')
     parser.add_argument('--inat-category', default='name',
                         choices=['kingdom', 'phylum', 'class', 'order', 'supercategory', 'family', 'genus', 'name'],
@@ -185,11 +186,11 @@ def get_args_parser():
     parser.set_defaults(pin_mem=True)
 
     # distributed training parameters
-    parser.add_argument('--distributed', action='store_true', default=False, help='Enabling distributed training')    
+    parser.add_argument('--distributed', action='store_true', help='Enabling distributed training')    
     parser.add_argument('--world_size', default=1, type=int, help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
     parser.add_argument('--rank', default=0, type=int, help='rank of the current process')
-    parser.add_argument('--gpu', default=[0, 1, 2, 3], type=list, help='GPU id to use.')
+    parser.add_argument('--gpu', default=None, type=list, help='GPU id to use.')
     return parser
 
 
@@ -197,7 +198,8 @@ def get_args_parser():
 def main(args):
     
     if args.distributed:
-        torch.distributed.init_process_group(backend='nccl', init_method=args.dist_url, world_size=args.world_size, rank=args.rank)
+        # Initialize the process group
+        torch.distributed.init_process_group(backend='nccl', init_method=args.dist_url)
         local_rank = int(os.environ["LOCAL_RANK"])
         torch.cuda.set_device(local_rank)
         device = torch.device(f'cuda:{local_rank}')
@@ -207,6 +209,7 @@ def main(args):
     else:
         device = torch.device(args.device)
         print("Training with a single process on 1 GPU.")
+
 
     print(args)    
     
@@ -273,10 +276,16 @@ def main(args):
 
     print(f"Creating model: {args.model}")
     if args.model == 'vit_register_dynamic_viz':
+        # TINY 
         model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=args.patch_size, in_chans=3, num_classes=args.nb_classes,
-										embed_dim=384, depth=12, num_heads=6, mlp_ratio=4., drop_rate=args.drop,
+										embed_dim=192, depth=12, num_heads=3, mlp_ratio=4., drop_rate=args.drop,
 										attn_drop_rate=0., drop_path_rate=args.drop_path, init_scale=1e-4,
-										mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=None)
+										mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=0, reg_pos=0)
+        # SMALL
+        # model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=args.patch_size, in_chans=3, num_classes=args.nb_classes,
+		# 								embed_dim=384, depth=12, num_heads=6, mlp_ratio=4., drop_rate=args.drop,
+		# 								attn_drop_rate=0., drop_path_rate=args.drop_path, init_scale=1e-4,
+		# 								mlp_ratio_clstk=4.0, num_register_tokens=0, cls_pos=0, reg_pos=None)
     else:
         model = create_model(
 			args.model,
@@ -288,12 +297,13 @@ def main(args):
 			img_size=args.input_size
 		)
 
+    # custom_summary(model, (3, 224, 224))
     # Move model to the correct device
     model.to(device)
 
     # Wrap the model with DDP
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], find_unused_parameters=True)
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
 
     model_without_ddp = model.module if args.distributed else model              
     if args.finetune:
@@ -367,7 +377,7 @@ def main(args):
 
     model_without_ddp = model
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=args.gpu)
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
         model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('number of params:', n_parameters)
