@@ -45,7 +45,7 @@ pip install -r requirements.txt
     ```bash
     torchrun --nnodes=1 --nproc_per_node=4 main_distillation.py --distributed --num_reg 4 --cls_pos 6 --reg_pos 3
     ```
-    
+    For more detailed commands, check the [commands](commands.sh) file.
 
 6. **Evaluate the model**:
     Evaluate the trained model on the CIFAR-10 or CIFAR-100 test set.
