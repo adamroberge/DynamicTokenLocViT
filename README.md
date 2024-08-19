@@ -33,14 +33,19 @@ pip install -r requirements.txt
     ```
 
 3. **Prepare the dataset**:
-    Ensure that the CIFAR-10 or CIFAR-100 dataset is available in the `./data/CIFAR10` or `./data/CIFAR100` directory respectively. The dataset will be automatically downloaded if not already present.
+    Ensure that the CIFAR-10 or CIFAR-100 dataset is available in the `./data/CIFAR10` or `./data/CIFAR100` directory respectively. If you want to train on the ImageNet 1k dataset, download the data through [ImageNet](https://www.image-net.org/)
 
 4. **Train the model**:
-    Train the Vision Transformer model on the CIFAR-10 or CIFAR-100 dataset.
+    Train the Vision Transformer model on the CIFAR-10, CIFAR-100, or ImageNet1k dataset. The model prepared to train on the ImageNet1k has dynamic token locations you can set and returns the evaluation as well after training.
     More details on the training function are in ```cifar_train.py```
     ```bash
     python cifar_main.py --data_path ./data/CIFAR10 --model_path ./models/best_model.pth
     ```
+    Example (4 reg tokens with cls token added at the 6th block and register tokens added at the 3rd block):
+    ```bash
+    torchrun --nnodes=1 --nproc_per_node=4 main_distillation.py --distributed --num_reg 4 --cls_pos 6 --reg_pos 3
+    ```
+    
 
 6. **Evaluate the model**:
     Evaluate the trained model on the CIFAR-10 or CIFAR-100 test set.
@@ -61,6 +66,7 @@ pip install -r requirements.txt
     ```bash
     python visualize_attention.py --model_path ./models/best_model.pth --layer_num 5 --output_dir ./attention_maps
     ```
+    Check [CIFAR10 Attention Map](cifar10_attention_maps.pdf) for an example result.
 
 ## Arguments
 
