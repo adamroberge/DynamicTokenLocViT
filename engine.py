@@ -15,8 +15,7 @@ from timm.utils import accuracy, ModelEma
 # from losses import DistillationLoss
 import utils
 
-
-# def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.CrossEntropyLoss, # BCEWithLogitsLoss
+# def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.CrossEntropyLoss,
 #                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
 #                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
 #                     model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None,
@@ -28,7 +27,7 @@ import utils
 #     print_freq = 10
     
 #     if args.cosub:
-#         criterion = torch.nn.CrossEntropyLoss() # BCEWithLogitsLoss 
+#         criterion = torch.nn.CrossEntropyLoss()
         
 #     for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
 #         samples = samples.to(device, non_blocking=True)
@@ -78,33 +77,39 @@ import utils
 #     print("Averaged stats:", metric_logger)
 #     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
-def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.CrossEntropyLoss, # BCEWithLogitsLoss
+import math
+import sys
+from typing import Iterable, Optional
+
+import torch
+import utils
+from timm.data.mixup import Mixup
+from timm.utils import ModelEma
+
+def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.CrossEntropyLoss,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
-                    model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None,
+                    mixup_fn: Optional[Mixup] = None, #model_ema: Optional[ModelEma] = None
                     set_training_mode=True, args=None):
     model.train(set_training_mode)
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
     print_freq = 10
-    
-    if args.cosub:
-        criterion = torch.nn.CrossEntropyLoss() # BCEWithLogitsLoss
-        
+
     for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
         samples = samples.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
-            
+
         if args.cosub:
             samples = torch.cat((samples, samples), dim=0)
-            
-        if args.bce_loss:
-            targets = targets.gt(0.0).type(targets.dtype)
-         
+
+        # if args.bce_loss:
+        #     targets = targets.gt(0.0).type(targets.dtype)
+
         with torch.cuda.amp.autocast():
             outputs = model(samples)
             if not args.cosub:
@@ -113,8 +118,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.CrossEntropyLoss
                 outputs = torch.split(outputs, outputs.shape[0] // 2, dim=0)
                 loss = 0.25 * criterion(outputs[0], targets)
                 loss += 0.25 * criterion(outputs[1], targets)
-                loss += 0.25 * criterion(outputs[0], outputs[1].detach().sigmoid())
-                loss += 0.25 * criterion(outputs[1], outputs[0].detach().sigmoid())
+                bce_criterion = torch.nn.BCEWithLogitsLoss()
+                loss += 0.25 * bce_criterion(outputs[0], outputs[1].detach().sigmoid())
+                loss += 0.25 * bce_criterion(outputs[1], outputs[0].detach().sigmoid())
 
         loss_value = loss.item()
 
@@ -130,8 +136,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.CrossEntropyLoss
                     parameters=model.parameters(), create_graph=is_second_order)
 
         torch.cuda.synchronize()
-        if model_ema is not None:
-            model_ema.update(model)
+        # if model_ema is not None:
+        #     model_ema.update(model)
 
         metric_logger.update(loss=loss_value)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])

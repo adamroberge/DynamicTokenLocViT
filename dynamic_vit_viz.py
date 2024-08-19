@@ -278,7 +278,7 @@ class vit_register_dynamic_viz(nn.Module):
 
         # Pass the class token representation through the classification head
         x_cls = self.head(x_cls)
-
+        
         return x_cls  # Return the final class scores
     
     def get_last_selfattention(self, x):

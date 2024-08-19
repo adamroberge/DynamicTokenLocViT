@@ -191,6 +191,12 @@ def get_args_parser():
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
     parser.add_argument('--rank', default=0, type=int, help='rank of the current process')
     parser.add_argument('--gpu', default=None, type=list, help='GPU id to use.')
+
+    # token hyperparams
+    parser.add_argument('--num_tokens', default=4, help='Number of register tokens')    
+    parser.add_argument('--cls_loc', default=0, help='Location of cls token')    
+    parser.add_argument('--reg_loc', default=0, help='Location of register tokens')    
+
     return parser
 
 
@@ -280,7 +286,7 @@ def main(args):
         model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=args.patch_size, in_chans=3, num_classes=args.nb_classes,
 										embed_dim=192, depth=12, num_heads=3, mlp_ratio=4., drop_rate=args.drop,
 										attn_drop_rate=0., drop_path_rate=args.drop_path, init_scale=1e-4,
-										mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=0, reg_pos=0)
+										mlp_ratio_clstk=4.0, num_register_tokens=6, cls_pos=0, reg_pos=0) # use argparsers
         # SMALL
         # model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=args.patch_size, in_chans=3, num_classes=args.nb_classes,
 		# 								embed_dim=384, depth=12, num_heads=6, mlp_ratio=4., drop_rate=args.drop,
@@ -366,14 +372,14 @@ def main(args):
             
     model.to(device)
 
-    model_ema = None
-    if args.model_ema:
-        # Important to create EMA model after cuda(), DP wrapper, and AMP but before SyncBN and DDP wrapper
-        model_ema = ModelEma(
-            model,
-            decay=args.model_ema_decay,
-            device='cpu' if args.model_ema_force_cpu else '',
-            resume='')
+    # model_ema = None
+    # if args.model_ema:
+    #     # Important to create EMA model after cuda(), DP wrapper, and AMP but before SyncBN and DDP wrapper
+    #     model_ema = ModelEma(
+    #         model,
+    #         decay=args.model_ema_decay,
+    #         device='cpu' if args.model_ema_force_cpu else '',
+    #         resume='')
 
     model_without_ddp = model
     if args.distributed:
@@ -439,8 +445,8 @@ def main(args):
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             args.start_epoch = checkpoint['epoch'] + 1
-            if args.model_ema:
-                utils._load_checkpoint_for_ema(model_ema, checkpoint['model_ema'])
+            # if args.model_ema:
+            #     utils._load_checkpoint_for_ema(model_ema, checkpoint['model_ema'])
             if 'scaler' in checkpoint:
                 loss_scaler.load_state_dict(checkpoint['scaler'])
         lr_scheduler.step(args.start_epoch)
@@ -459,7 +465,7 @@ def main(args):
         train_stats = train_one_epoch(
             model, criterion, data_loader_train,
             optimizer, device, epoch, loss_scaler,
-            args.clip_grad, model_ema, mixup_fn,
+            args.clip_grad, mixup_fn, # model_ema --- removed
             set_training_mode=args.train_mode,  # keep in eval mode for deit finetuning / train mode for training and deit III finetuning
             args = args,
         )
@@ -473,7 +479,7 @@ def main(args):
                     'optimizer': optimizer.state_dict(),
                     'lr_scheduler': lr_scheduler.state_dict(),
                     'epoch': epoch,
-                    'model_ema': get_state_dict(model_ema),
+                    # 'model_ema': get_state_dict(model_ema),
                     'scaler': loss_scaler.state_dict(),
                     'args': args,
                 }, checkpoint_path)
@@ -492,7 +498,7 @@ def main(args):
                         'optimizer': optimizer.state_dict(),
                         'lr_scheduler': lr_scheduler.state_dict(),
                         'epoch': epoch,
-                        'model_ema': get_state_dict(model_ema),
+                        # 'model_ema': get_state_dict(model_ema),
                         'scaler': loss_scaler.state_dict(),
                         'args': args,
                     }, checkpoint_path)
