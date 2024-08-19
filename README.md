@@ -36,7 +36,7 @@ pip install -r requirements.txt
     Ensure that the CIFAR-10 or CIFAR-100 dataset is available in the `./data/CIFAR10` or `./data/CIFAR100` directory respectively. If you want to train on the ImageNet 1k dataset, download the data through [ImageNet](https://www.image-net.org/)
 
 4. **Train the model**:
-    Train the Vision Transformer model on the CIFAR-10, CIFAR-100, or ImageNet1k dataset. The model prepared to train on the ImageNet1k has dynamic token locations you can set 
+    Train the Vision Transformer model on the CIFAR-10, CIFAR-100, or ImageNet1k dataset. The model prepared to train on the ImageNet1k has dynamic token locations you can set and returns the evaluation as well after training.
     More details on the training function are in ```cifar_train.py```
     ```bash
     python cifar_main.py --data_path ./data/CIFAR10 --model_path ./models/best_model.pth
