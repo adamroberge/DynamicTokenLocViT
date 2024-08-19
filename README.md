@@ -66,6 +66,7 @@ pip install -r requirements.txt
     ```bash
     python visualize_attention.py --model_path ./models/best_model.pth --layer_num 5 --output_dir ./attention_maps
     ```
+    Check [CIFAR10 Attention Map](cifar10_attention_maps.pdf) for an example result.
 
 ## Arguments
 
