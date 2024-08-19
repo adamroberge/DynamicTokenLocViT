@@ -193,9 +193,9 @@ def get_args_parser():
     parser.add_argument('--gpu', default=None, type=list, help='GPU id to use.')
 
     # token hyperparams
-    parser.add_argument('--num_tokens', default=4, help='Number of register tokens')    
-    parser.add_argument('--cls_loc', default=0, help='Location of cls token')    
-    parser.add_argument('--reg_loc', default=0, help='Location of register tokens')    
+    parser.add_argument('--num_reg', default=4, type=int, help='Number of register tokens')    
+    parser.add_argument('--cls_pos', default=0, type=int, help='Position of cls token')    
+    parser.add_argument('--reg_pos', default=0, type=int, help='Position of register tokens')    
 
     return parser
 
@@ -286,7 +286,7 @@ def main(args):
         model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=args.patch_size, in_chans=3, num_classes=args.nb_classes,
 										embed_dim=192, depth=12, num_heads=3, mlp_ratio=4., drop_rate=args.drop,
 										attn_drop_rate=0., drop_path_rate=args.drop_path, init_scale=1e-4,
-										mlp_ratio_clstk=4.0, num_register_tokens=6, cls_pos=0, reg_pos=0) # use argparsers
+										mlp_ratio_clstk=4.0, num_register_tokens=args.num_reg, cls_pos=args.cls_pos, reg_pos=args.reg_pos) 
         # SMALL
         # model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=args.patch_size, in_chans=3, num_classes=args.nb_classes,
 		# 								embed_dim=384, depth=12, num_heads=6, mlp_ratio=4., drop_rate=args.drop,
