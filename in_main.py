@@ -1,4 +1,3 @@
-# in_main.py
 import argparse
 import os
 from pathlib import Path
@@ -14,7 +13,6 @@ from dynamic_vit_viz import vit_register_dynamic_viz
 from in_train import train_model
 from in_test import test_model
 from custom_summary import custom_summary
-
 from timm.data import create_transform
 from timm.scheduler import create_scheduler
 
@@ -35,7 +33,7 @@ def get_args_parser():
     parser.add_argument('--drop', type=float, default=0.0)
     parser.add_argument('--nb-classes', type=int, default=1000)
     parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--opt', default='adamw', type=str)
+    parser.add_argument('--opt', default='lamb', type=str)
     parser.add_argument('--warmup-lr', type=float, default=1e-6)
     parser.add_argument('--mixup', type=float, default=0.8)
     parser.add_argument('--drop-path', type=float, default=0.05)
@@ -47,8 +45,17 @@ def get_args_parser():
     parser.add_argument('--data-path', default='/home/adam/data/in1k', type=str)
     parser.add_argument('--device', default='cuda', type=str)
     parser.add_argument('--output_dir', default='output_dir', type=str)
-
+    parser.add_argument('--num_layer', default=6, type=int)
+    parser.add_argument('--cls_pos', default=0, type=int)
+    parser.add_argument('--reg_pos', default=0, type=int)
+    parser.add_argument('--gpu', default=None, type=list, help='GPU id to use.')
     return parser
+
+def set_visible_gpus(gpu_list):
+    if gpu_list is not None:
+        gpu_list_str = ','.join(str(gpu_id) for gpu_id in gpu_list)
+        os.environ['CUDA_VISIBLE_DEVICES'] = gpu_list_str
+        print(f"Set CUDA_VISIBLE_DEVICES to {gpu_list_str}")
 
 def main(args):
     # Set random seed for reproducibility
@@ -58,6 +65,9 @@ def main(args):
     torch.backends.cudnn.benchmark = False
     np.random.seed(args.seed)
     random.seed(args.seed)
+
+    # Set the GPUs to be visible
+    set_visible_gpus(args.gpu)
 
     train_transform = create_transform(
         input_size=args.input_size,  # Ensure images are resized to 224x224
@@ -89,13 +99,18 @@ def main(args):
     model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=args.patch_size, in_chans=3, num_classes=args.nb_classes, embed_dim=384, depth=12,
                                      num_heads=6, mlp_ratio=4., drop_rate=args.drop, attn_drop_rate=0.,
                                      drop_path_rate=args.drop_path, init_scale=1e-4,
-                                     mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=6, reg_pos=0)
+                                     mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=args.cls_pos, reg_pos=args.reg_pos)
 
     custom_summary(model, (3, args.input_size, args.input_size))
 
     # Move the model to GPU if available
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     model.to(device)
+
+    # Wrap the model with DataParallel for multi-GPU usage
+    if torch.cuda.device_count() > 1:
+        print(f"Using GPUs: {args.gpu}")
+        model = nn.DataParallel(model)
 
     # Define the loss function and optimizer
     loss_fn = nn.CrossEntropyLoss()
