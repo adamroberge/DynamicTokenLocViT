@@ -6,5 +6,6 @@ checkpoints/
 *.pth
 # *.pdf
 data/
+cifar_data/
 result/
 output_dir/
