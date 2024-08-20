@@ -7,5 +7,5 @@ checkpoints/
 # *.pdf
 data/
 cifar_data/
-result/
-output_dir/
+# result/
+# output_dir/
