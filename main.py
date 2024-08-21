@@ -36,7 +36,7 @@ from custom_summary import custom_summary
 def get_args_parser():
     parser = argparse.ArgumentParser('Dynamic Cls & Reg Token Location VIT', add_help=False)
     parser.add_argument('--batch-size', default=512, type=int)
-    parser.add_argument('--epochs', default=400, type=int)
+    parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--bce-loss', action='store_true')
     parser.add_argument('--unscale-lr', action='store_true')
 
