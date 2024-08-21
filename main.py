@@ -491,7 +491,7 @@ def main(args):
         if max_accuracy < test_stats["acc1"]:
             max_accuracy = test_stats["acc1"]
             if args.output_dir:
-                checkpoint_paths = [output_dir / 'best_checkpoint.pth']
+                checkpoint_paths = [output_dir / f'best_checkpoint_cls_{args.cls_pos}_reg_{args.reg_pos}.pth']
                 for checkpoint_path in checkpoint_paths:
                     utils.save_on_master({
                         'model': model_without_ddp.state_dict(),
