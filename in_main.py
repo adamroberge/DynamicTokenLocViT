@@ -15,7 +15,7 @@ from in_test import test_model
 from custom_summary import custom_summary
 from timm.data import create_transform
 from timm.scheduler import create_scheduler
-
+import torch.distributed as dist
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Training and Evaluation Script', add_help=False)
@@ -48,7 +48,9 @@ def get_args_parser():
     parser.add_argument('--num_layer', default=6, type=int)
     parser.add_argument('--cls_pos', default=0, type=int)
     parser.add_argument('--reg_pos', default=0, type=int)
-    parser.add_argument('--gpu', default=None, type=list, help='GPU id to use.')
+    parser.add_argument('--gpu', default=None, type=str, help='GPU id to use.')
+    parser.add_argument('--world_size', default=1, type=int, help='Number of distributed processes')
+    parser.add_argument('--dist_url', default='env://', help='URL to set up distributed training')
     return parser
 
 def set_visible_gpus(gpu_list):
@@ -68,6 +70,15 @@ def main(args):
 
     # Set the GPUs to be visible
     set_visible_gpus(args.gpu)
+
+    # Initialize the process group for distributed training
+    if args.world_size > 1:
+        dist.init_process_group(backend='nccl', init_method=args.dist_url)
+        local_rank = dist.get_rank()
+        torch.cuda.set_device(local_rank)
+        device = torch.device(f'cuda:{local_rank}')
+    else:
+        device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     train_transform = create_transform(
         input_size=args.input_size,  # Ensure images are resized to 224x224
@@ -92,25 +103,32 @@ def main(args):
     train_dataset = ImageFolder(root=os.path.join(args.data_path, 'train'), transform=train_transform)
     test_dataset = ImageFolder(root=os.path.join(args.data_path, 'val'), transform=test_transform)
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2, worker_init_fn=lambda _: np.random.seed(args.seed))
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, worker_init_fn=lambda _: np.random.seed(args.seed))
+    # Use DistributedSampler for distributed training
+    if args.world_size > 1:
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset, shuffle=False)
+    else:
+        train_sampler = torch.utils.data.RandomSampler(train_dataset)
+        test_sampler = torch.utils.data.SequentialSampler(test_dataset)
+
+    train_loader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.batch_size, num_workers=2, worker_init_fn=lambda _: np.random.seed(args.seed))
+    test_loader = DataLoader(test_dataset, sampler=test_sampler, batch_size=args.batch_size, num_workers=2, worker_init_fn=lambda _: np.random.seed(args.seed))
 
     # Initialize the model
+    # Small 
     model = vit_register_dynamic_viz(img_size=args.input_size, patch_size=args.patch_size, in_chans=3, num_classes=args.nb_classes, embed_dim=384, depth=12,
                                      num_heads=6, mlp_ratio=4., drop_rate=args.drop, attn_drop_rate=0.,
                                      drop_path_rate=args.drop_path, init_scale=1e-4,
                                      mlp_ratio_clstk=4.0, num_register_tokens=4, cls_pos=args.cls_pos, reg_pos=args.reg_pos)
 
-    custom_summary(model, (3, args.input_size, args.input_size))
+    # custom_summary(model, (3, args.input_size, args.input_size))
 
     # Move the model to GPU if available
-    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    # Wrap the model with DataParallel for multi-GPU usage
-    if torch.cuda.device_count() > 1:
-        print(f"Using GPUs: {args.gpu}")
-        model = nn.DataParallel(model)
+    # Wrap the model with DistributedDataParallel for multi-GPU usage
+    if args.world_size > 1:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
 
     # Define the loss function and optimizer
     loss_fn = nn.CrossEntropyLoss()
@@ -124,6 +142,10 @@ def main(args):
 
     # Test the model
     test_model(model, test_loader, device)
+
+    # Cleanup distributed training
+    if args.world_size > 1:
+        dist.destroy_process_group()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('ImageNet1K Training and Evaluation Script', parents=[get_args_parser()])
