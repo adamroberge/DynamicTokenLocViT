@@ -2,9 +2,9 @@ import os
 import argparse
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from torchvision import datasets, transforms as pth_transforms
 from torch.utils.data import DataLoader
+from pathlib import Path
 import numpy as np
 import random
 import matplotlib.pyplot as plt
@@ -21,15 +21,27 @@ torch.backends.cudnn.benchmark = False
 np.random.seed(seed)
 random.seed(seed)
 
+# Fixing the issue by removing 'module.' prefix from state_dict keys
+def remove_module_prefix(state_dict):
+    """Removes the 'module.' prefix from state dict keys."""
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        if k.startswith('module.'):
+            new_state_dict[k[7:]] = v  # Remove 'module.' prefix
+        else:
+            new_state_dict[k] = v
+    return new_state_dict
+
 # Argument parser for command-line options
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Visualize Self-Attention Maps')
-    parser.add_argument("--output_dir", default='.', help='Path where to save visualizations.')
+    parser.add_argument("--output_dir", default='/home/adam/dynamic_vit/DynamicTokenLocViT/result', help='Path where to save visualizations.')
     parser.add_argument('--model_path', default='/home/adam/dynamic_vit/DynamicTokenLocViT/result/best_checkpoint.pth', type=str, help='Path to the trained model.')
     parser.add_argument('--layer_num', default=5, type=int, help='Layer number to visualize attention from.')
     parser.add_argument('--num_reg', default=4, type=int, help='Number of register tokens')    
     parser.add_argument('--cls_pos', default=0, type=int, help='Position of cls token')    
     parser.add_argument('--reg_pos', default=0, type=int, help='Position of register tokens')    
+    parser.add_argument('--img_num', default=0, type=int, help="Number of image inside the batch")
     parser.add_argument('--image_path', default='', type=str, help='Path to the image for visualization.')
     
     args = parser.parse_args()
@@ -51,20 +63,27 @@ if __name__ == '__main__':
         img = Image.open(args.image_path).convert('RGB')
         img = transform(img).unsqueeze(0)  # Transform and add batch dimension
     else:
-        # Alternatively, you could load a sample from the ImageNet validation set
+        # Load a sample from the ImageNet validation set
         dataset_val = datasets.ImageNet(root='/home/adam/data/in1k/', split='val', transform=transform)
-        data_loader_val = DataLoader(dataset_val, batch_size=1, shuffle=False, num_workers=2)
-        img, _ = next(iter(data_loader_val))  # Get one image and its label
+        data_loader_val = DataLoader(dataset_val, batch_size=64, shuffle=True, num_workers=2)
+        for images, labels in data_loader_val:
+            img = images[args.img_num].unsqueeze(0)  # Take an image and add batch dimension
+            label = labels[args.img_num].item()  # Take the according label of the image
+            break
 
     # Build the model with ImageNet1k parameters
     model = vit_register_dynamic_viz(
-        img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=384, depth=12,
-        num_heads=12, mlp_ratio=4., drop_rate=0., attn_drop_rate=0., drop_path_rate=0.,
+        img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=192, depth=12,
+        num_heads=3, mlp_ratio=4., drop_rate=0., attn_drop_rate=0., drop_path_rate=0.,
         init_scale=1e-4, mlp_ratio_clstk=4.0, num_register_tokens=args.num_reg,
         cls_pos=args.cls_pos, reg_pos=args.reg_pos
     )
     
-    model.load_state_dict(torch.load(args.model_path, map_location=device))
+    # Load the model's state_dict from the checkpoint
+    checkpoint = torch.load(args.model_path, map_location=device)
+    model_state_dict = checkpoint['model']  # Extract model state dict
+    model_state_dict = remove_module_prefix(model_state_dict)  # Remove 'module.' prefix
+    model.load_state_dict(model_state_dict)
     model.to(device)
     model.eval()  # Set the model to evaluation mode
 
@@ -100,7 +119,7 @@ if __name__ == '__main__':
         reg_attentions_list[i] = torch.nn.functional.interpolate(reg_attentions_list[i].unsqueeze(0), scale_factor=16, mode="nearest")[0].cpu().detach().numpy()
 
     # Save attention heatmaps in a single PDF
-    with PdfPages(os.path.join(args.output_dir, "attention_maps.pdf")) as pdf:
+    with PdfPages(Path(args.output_dir) / f"attention_maps_layer_{args.layer_num}_of_image_{args.img_num}_cls_{args.cls_pos}_reg_{args.reg_pos}.pdf") as pdf:
         # Save class attentions
         fig, axes = plt.subplots(nrows=5, ncols=3, figsize=(15, 20))
 
@@ -152,4 +171,4 @@ if __name__ == '__main__':
             pdf.savefig(fig, bbox_inches='tight')
             plt.close(fig)
 
-    print(f"All attention heads saved in {os.path.join(args.output_dir, 'attention_maps.pdf')}.")
+    print(f"All attention heads saved in {os.path.join(args.output_dir, 'attention_maps_layer_{args.layer_num}_of_image_{args.img_num}_cls_{args.cls_pos}_reg_{args.reg_pos}.pdf')}.")

@@ -10,7 +10,8 @@ torchrun --nnodes=1 --nproc_per_node=4 main.py
 torchrun --nnodes=1 --nproc_per_node=4 main.py --distributed
 
 # ImageNet1k - Setting the token locations dynamically
-torchrun --nnodes=1 --nproc_per_node=3 main.py --distributed --num_reg 4 --cls_pos 6 --reg_pos 3
+torchrun --nnodes=1 --nproc_per_node=3 main.py --distributed --num_reg 4 --cls_pos 6 --reg_pos 
+torchrun --nnodes=1 --nproc_per_node=3 main.py --distributed --lr 5e-6 --num_reg 4 --cls_pos 6 --reg_pos 3
 
 # ImageNet1k + distillation - Setting the token locations dynamically
 torchrun --nnodes=1 --nproc_per_node=4 main_distillation.py --distributed --num_reg 4 --cls_pos 6 --reg_pos 3
@@ -31,8 +32,10 @@ python in_main.py --data-path /home/adam/data/in1k --device cuda --gpu "0,1,2" -
 
 # ImageNet1k - in_main.py (simple)
 python viz_attn_in_main.py --cls_pos 0 --reg_pos 0 --layer_num 3 --img_num 0 
+python viz_attn_in_main.py --model_path /home/adam/dynamic_vit/DynamicTokenLocViT/result/best_checkpoint.pth --cls_pos 0 --reg_pos 0 --layer_num 3 --img_num 0 
 
 # ImageNet1k - main.py 
 # make sure to change model path to match the cls_pos and reg_pos 
 python viz_attn_main.py --model_path /home/adam/dynamic_vit/DynamicTokenLocViT/result/best_checkpoint_cls_0_reg_0.pth --cls_pos 0 --reg_pos 0 --layer_num 3 --img_num 0 
+python viz_attn_main.py --model_path /home/adam/dynamic_vit/DynamicTokenLocViT/result/best_checkpoint.pth --cls_pos 0 --reg_pos 0 --layer_num 0 --img_num 0
 

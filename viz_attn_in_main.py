@@ -152,7 +152,7 @@ def main(args):
     # Get one image and label from the validation dataset
     for images, labels in test_loader:
         img = images[args.img_num]  # Take the first image from the batch
-        label = labels[0].item()  # Take the label of the first image
+        label = labels[args.img_num].item()  # Take the label of the first image
         break
 
     # Visualize attention maps
