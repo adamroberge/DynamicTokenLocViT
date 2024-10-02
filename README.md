@@ -106,6 +106,8 @@ The visualization script extracts self-attention maps from the specified layer a
 
 The attention maps are saved in a PDF file in the specified output directory. Each page includes the original image and the attention maps for the class and register tokens.
 
+Please note that the attention maps generated in this version are preliminary and may be of lower quality. We are actively working on improving the generation process to enhance the resolution and accuracy of these visualizations. Future updates will include higher-quality attention maps and additional features to better support your analysis needs.
+
 
 ## Important Notes
 
