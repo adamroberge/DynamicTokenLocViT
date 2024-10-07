@@ -1,6 +1,15 @@
 # Dynamic Token Location for ViT Visualization
 
-This repository contains the implementation of a Vision Transformer (ViT) model with dynamic tokens, including class and register tokens. The basic structure was based on the [DeiT code from Facebook](https://github.com/facebookresearch/deit), and the project is built upon this code. The idea of this project was inspired by the papers ["Vision Transformers need Registers"](https://arxiv.org/abs/2309.16588) and ["Going Deeper with Image Transformers"](https://arxiv.org/abs/2103.17239).
+This repository contains the implementation of a **Vision Transformer (ViT) model** with dynamic tokens, including class and register tokens. The basic structure was based on the [DeiT code from Facebook](https://github.com/facebookresearch/deit), and the project is built upon this code. The idea of this project was inspired by the papers ["Vision Transformers need Registers"](https://arxiv.org/abs/2309.16588) and ["Going Deeper with Image Transformers"](https://arxiv.org/abs/2103.17239).
+
+This repository presents an implementation of an enhanced Vision Transformer (ViT) model with dynamic token allocation, incorporating both class tokens and register tokens. Built on the foundational code from [DeiT (Data-efficient Image Transformers) by Facebook](https://github.com/facebookresearch/deit), this project enhances the standard ViT architecture by allowing dynamic and customizable token management at various layers.
+
+Inspired by research from the papers ["Vision Transformers Need Registers"](https://arxiv.org/abs/2309.16588) and ["Going Deeper with Image Transformers"](https://arxiv.org/abs/2103.17239), this implementation introduces **flexible class and register token placement**—a unique feature that enables users to choose where these tokens are injected within the model architecture. This dynamic approach improves token adaptability, making the transformer more responsive to different tasks and datasets.
+
+Additionally, **attention map visualization** tools are provided, enabling users to better understand token interactions and their influence on the model's decision-making process. This contributes to **improved model interpretability** by allowing deeper insights into how the attention mechanism operates across layers and tokens.
+
+
+
 
 ## Table of Contents
 
