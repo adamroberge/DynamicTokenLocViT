@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="474" viewBox="0 0 1160 474" role="img" aria-labelledby="title description">
+  <title id="title">Dynamic class and register token placement in a Vision Transformer</title>
+  <desc id="description">An example with 12 transformer blocks. A 224 by 224 image becomes 196 patch tokens with positional embeddings. Blocks 0 through 2 process patches. Four register tokens enter before block 3. A class token enters before block 6. Blocks 6 through 11 process the resulting 201 tokens. The final normalized class token goes to the classification head.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <marker id="register-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="class-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c2410c"/>
+    </marker>
+  </defs>
+  <rect width="1160" height="474" rx="20" fill="#f8fafc"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="32" y="38" font-size="13" font-weight="700" letter-spacing="1.8" fill="#0f766e">DYNAMIC TOKEN PLACEMENT</text>
+    <text x="32" y="78" font-size="30" font-weight="700" fill="#0f172a">Choose when tokens enter the transformer</text>
+    <text x="32" y="110" font-size="17" fill="#475569">Example: 12 blocks · reg_pos = 3 · cls_pos = 6 · 4 register tokens</text>
+
+    <g stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow)">
+      <path d="M 223 207 H 251"/>
+      <path d="M 449 207 H 477"/>
+      <path d="M 675 207 H 703"/>
+      <path d="M 901 207 H 929"/>
+    </g>
+
+    <rect x="32" y="157" width="190" height="101" rx="12" fill="#e6f6f3" stroke="#99d5cc"/>
+    <text x="127" y="186" text-anchor="middle" font-size="18" font-weight="700" fill="#115e59">Patch embedding</text>
+    <text x="127" y="213" text-anchor="middle" font-size="14" fill="#115e59">224² image · 16² patches</text>
+    <text x="127" y="239" text-anchor="middle" font-size="14" fill="#115e59">+ positional embeddings</text>
+
+    <rect x="258" y="157" width="190" height="101" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+    <text x="353" y="190" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Blocks 0–2</text>
+    <text x="353" y="220" text-anchor="middle" font-size="16" fill="#475569">Patches only</text>
+    <text x="353" y="244" text-anchor="middle" font-size="14" fill="#64748b">196 tokens</text>
+
+    <rect x="484" y="157" width="190" height="101" rx="12" fill="#f3edff" stroke="#c4b5fd"/>
+    <text x="579" y="190" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Blocks 3–5</text>
+    <text x="579" y="220" text-anchor="middle" font-size="16" fill="#5b21b6">Patches + registers</text>
+    <text x="579" y="244" text-anchor="middle" font-size="14" fill="#6d28d9">200 tokens</text>
+
+    <rect x="710" y="157" width="190" height="101" rx="12" fill="#fff2e9" stroke="#fdba74"/>
+    <text x="805" y="190" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Blocks 6–11</text>
+    <text x="805" y="220" text-anchor="middle" font-size="15" fill="#9a3412">CLS + patches + registers</text>
+    <text x="805" y="244" text-anchor="middle" font-size="14" fill="#c2410c">201 tokens</text>
+
+    <rect x="936" y="157" width="192" height="101" rx="12" fill="#0f172a"/>
+    <text x="1032" y="190" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">Classification</text>
+    <text x="1032" y="220" text-anchor="middle" font-size="14" fill="#cbd5e1">Layer norm → CLS → head</text>
+    <text x="1032" y="244" text-anchor="middle" font-size="14" fill="#cbd5e1">Class scores</text>
+
+    <path d="M 579 290 V 263" fill="none" stroke="#7c3aed" stroke-width="2" marker-end="url(#register-arrow)"/>
+    <rect x="474" y="294" width="210" height="52" rx="10" fill="#ede9fe"/>
+    <text x="579" y="316" text-anchor="middle" font-size="16" font-weight="700" fill="#5b21b6">Append 4 register tokens</text>
+    <text x="579" y="336" text-anchor="middle" font-size="13" fill="#6d28d9">Before block 3</text>
+
+    <path d="M 805 290 V 263" fill="none" stroke="#c2410c" stroke-width="2" marker-end="url(#class-arrow)"/>
+    <rect x="706" y="294" width="198" height="52" rx="10" fill="#ffedd5"/>
+    <text x="805" y="316" text-anchor="middle" font-size="16" font-weight="700" fill="#9a3412">Prepend the class token</text>
+    <text x="805" y="336" text-anchor="middle" font-size="13" fill="#c2410c">Before block 6</text>
+
+    <line x1="32" y1="374" x2="1128" y2="374" stroke="#e2e8f0"/>
+    <text x="32" y="410" font-size="16" font-weight="700" fill="#334155">Sequence from block 6</text>
+    <rect x="253" y="391" width="66" height="34" rx="6" fill="#ffedd5" stroke="#fdba74"/>
+    <text x="286" y="413" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412">CLS</text>
+    <rect x="329" y="391" width="377" height="34" rx="6" fill="#ccfbf1" stroke="#99d5cc"/>
+    <text x="518" y="413" text-anchor="middle" font-size="15" fill="#115e59">196 patch tokens</text>
+    <g fill="#ede9fe" stroke="#c4b5fd">
+      <rect x="716" y="391" width="64" height="34" rx="6"/>
+      <rect x="790" y="391" width="64" height="34" rx="6"/>
+      <rect x="864" y="391" width="64" height="34" rx="6"/>
+      <rect x="938" y="391" width="64" height="34" rx="6"/>
+    </g>
+    <g text-anchor="middle" font-size="15" font-weight="700" fill="#5b21b6">
+      <text x="748" y="413">R1</text>
+      <text x="822" y="413">R2</text>
+      <text x="896" y="413">R3</text>
+      <text x="970" y="413">R4</text>
+    </g>
+    <text x="1128" y="413" text-anchor="end" font-size="15" fill="#475569">201 tokens</text>
+    <text x="32" y="450" font-size="14" fill="#64748b">Block indices start at 0. Insertion positions can be configured independently.</text>
+  </g>
+</svg>

@@ -1,138 +1,106 @@
-# Dynamic Token Location for ViT Visualization
+# DynamicTokenLocViT
 
-This repository presents an implementation of an enhanced **Vision Transformer (ViT)** model with dynamic token allocation, incorporating both class tokens and register tokens. Built on the foundational code from [DeiT (Data-efficient Image Transformers) by Facebook](https://github.com/facebookresearch/deit), this project enhances the standard ViT architecture by allowing dynamic and customizable token management at various layers.
+**Exploring class and register token placement in Vision Transformers.**
 
-Inspired by research from the papers ["Vision Transformers Need Registers"](https://arxiv.org/abs/2309.16588) and ["Going Deeper with Image Transformers"](https://arxiv.org/abs/2103.17239), this implementation introduces **flexible class and register token placement**—a unique feature that enables users to choose where these tokens are injected within the model architecture. This dynamic approach improves token adaptability, making the transformer more responsive to different tasks and datasets.
+Research code developed at Seoul National University (SNU) in 2024. This project builds on DeiT to let you choose the transformer blocks where the class token and register tokens enter the sequence, and inspect their attention to image patches.
 
-Additionally, **attention map visualization** tools are provided, enabling users to better understand token interactions and their influence on the model's decision-making process. This contributes to **improved model interpretability** by allowing deeper insights into how the attention mechanism operates across layers and tokens.
+[Model idea](#model-idea) · [Attention gallery](#attention-gallery) · [Find your way around](#find-your-way-around) · [Setup](#setup) · [Usage guide](docs/usage.md)
 
+## Model idea
 
-## Table of Contents
+Patch tokens receive positional embeddings before entering the transformer. Register tokens are appended at `reg_pos`, and the class token is prepended at `cls_pos`. The final class representation feeds the classification head.
 
-- [Installation](#installation)
-- [Usage](#usage)
-- [Model Architecture](#model-architecture)
-- [Visualization](#visualization)
-- [Contributing](#contributing)
-- [License](#license)
+![Token insertion diagram: image patches pass through blocks 0 to 2; four register tokens enter before block 3; the class token enters before block 6; blocks 6 to 11 feed the classification head.](docs/figures/token-placement.svg)
 
-## Installation
+The diagram shows one configuration: `reg_pos=3`, `cls_pos=6`, and four register tokens. These positions are configurable; either token type can enter first, or both can enter at the same block. **Block indices are zero-based**, so position `0` means before the first block.
 
-To get started, clone this repository and install the required dependencies:
+| Setting | Command-line flag | Model constructor parameter |
+| --- | --- | --- |
+| Class token insertion block | `--cls_pos` | `cls_pos` |
+| Register token insertion block | `--reg_pos` | `reg_pos` |
+| Number of register tokens | `--num_reg` | `num_register_tokens` |
 
-```bash
-git clone https://github.com/adanroberge/cls-register.git
-pip install -r requirements.txt
+Start with [`vit_register_dynamic_viz`](models/dynamic_vit_viz.py), which implements token insertion and attention extraction.
+
+## Attention gallery
+
+These previews are selected panels from the **existing research PDFs**. No new training or inference was used to create them.
+
+### Class and register attention
+
+The plotted input and head 1 attention from the class token, register token 1, and register token 4 at block 11. Both token types entered at block 0 in this saved example.
+
+![Saved ImageNet sample beside class-token, register-token-1, and register-token-4 attention maps, all from head 1 at block 11.](docs/figures/token-attention.png)
+
+[View the complete PDF, including all six heads and four register tokens →](docs/examples/attention_maps_layer_11_of_image_5_cls_0_reg_0.pdf)
+
+### Attention across depth
+
+Class-token attention from head 1 at blocks 0, 3, and 11 for the same saved ImageNet sample (`cls_pos=0`, `reg_pos=0`).
+
+![The same saved ImageNet input beside class-token head 1 attention at blocks 0, 3, and 11.](docs/figures/layer-attention.png)
+
+Full PDFs: [block 0](docs/examples/attention_maps_layer_0_of_image_5_cls_0_reg_0.pdf) · [block 3](docs/examples/attention_maps_layer_3_of_image_5_cls_0_reg_0.pdf) · [block 11](docs/examples/attention_maps_layer_11_of_image_5_cls_0_reg_0.pdf)
+
+The original plotting scripts display normalized input tensors, which explains the exaggerated image colors. Heatmaps retain each original panel's color scale and are qualitative examples. See the [figure provenance](docs/figures/README.md) and [full gallery, including CIFAR-10](docs/examples/README.md).
+
+## Find your way around
+
+| What you want to explore | Start here |
+| --- | --- |
+| Dynamic token placement and attention extraction | [`models/dynamic_vit_viz.py`](models/dynamic_vit_viz.py) |
+| Dynamic model without visualization helpers | [`models/dynamic_vit.py`](models/dynamic_vit.py) |
+| Main training and evaluation workflow | [`training/main.py`](training/main.py) |
+| Training with optional teacher distillation | [`training/distillation.py`](training/distillation.py) |
+| Attention maps from a `training/main.py` checkpoint | [`visualization/attention.py`](visualization/attention.py) |
+| Simpler CIFAR-10 and ImageNet workflows | [Workflow guide](docs/usage.md#other-research-workflows) |
+| Baseline models, shared helpers, and research scratch scripts | [Complete file guide](docs/repository-guide.md) |
+| Archived attention figures | [`docs/examples/`](docs/examples/README.md) |
+
+```text
+DynamicTokenLocViT/
+├── README.md                  Project overview and visual guide
+├── docs/
+│   ├── usage.md               Commands, data layout, and checkpoint formats
+│   ├── repository-guide.md    Map of the source files
+│   ├── figures/               README images and their provenance
+│   ├── examples/              Original attention-map PDFs
+│   └── archive/               Historical experiment command notes
+├── models/                    Dynamic ViT models and baseline definitions
+├── data_utils/                Dataset builders, augmentation, and samplers
+├── training/
+│   ├── main.py               Main training and evaluation entry point
+│   ├── distillation.py       Optional teacher-distillation workflow
+│   ├── cifar/                CIFAR-10 training and evaluation
+│   ├── imagenet/             Simpler ImageNet training and evaluation
+│   └── trainable_tokens/     Alternative token-model workflow
+├── visualization/             Attention-map entry points
+├── common/                    Shared utilities and model summaries
+├── research/                  Historical research scratch scripts
+├── requirements.txt           Pinned research dependencies
+└── LICENSE                    MIT license
 ```
 
-## Usage
+Run entry points as modules from the repository root, for example `python -m training.main` or `python -m visualization.attention`. The [usage guide](docs/usage.md) has complete commands, and the [entry-point migration table](docs/repository-guide.md#entry-point-migration) maps the former script names to their new modules.
 
-1. **Clone the repository**:
-    ```bash
-    git clone https://github.com/adamroberge/cls-register.git
-    ```
+Downloaded datasets, checkpoints, and generated run outputs belong in ignored local directories; curated figures live under `docs/`.
 
-2. **Install the required packages**:
-    ```bash
-    pip install -r requirements.txt
-    ```
+## Setup
 
-3. **Prepare the dataset**:
-    Ensure that the CIFAR-10 or CIFAR-100 dataset is available in the `./data/CIFAR10` or `./data/CIFAR100` directory respectively. If you want to train on the ImageNet 1k dataset, download the data through [ImageNet](https://www.image-net.org/)
+```bash
+git clone https://github.com/adamroberge/DynamicTokenLocViT.git
+cd DynamicTokenLocViT
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
 
-4. **Train the model**:
-    Train the Vision Transformer model on the CIFAR-10, CIFAR-100, or ImageNet1k dataset. The model prepared to train on the ImageNet1k has dynamic token locations you can set and returns the evaluation as well after training.
-    More details on the training function are in ```cifar_train.py```
-    ```bash
-    python cifar_main.py --data_path ./data/CIFAR10 --model_path ./models/best_model.pth
-    ```
-    Example (4 reg tokens with cls token added at the 6th block and register tokens added at the 3rd block):
-    ```bash
-    torchrun --nnodes=1 --nproc_per_node=4 main_distillation.py --distributed --num_reg 4 --cls_pos 6 --reg_pos 3
-    ```
-    For more detailed commands, check the [commands](commands.sh) file.
+The dependency pins reflect the original research environment. Model definitions also import `torchsummary`, and the simple training loops use `tqdm`; the [usage guide](docs/usage.md#setup-and-data) covers these additional dependencies and the dataset layouts. Trained checkpoints and datasets are not distributed with this repository.
 
-6. **Evaluate the model**:
-    Evaluate the trained model on the CIFAR-10 or CIFAR-100 test set.
-    More details on the training function are in ```cifar_test.py```
-    ```bash
-    python cifar_main.py --data_path ./data/CIFAR10 --model_path ./models/best_model.pth
-    ```
+For commands, start with the [usage guide](docs/usage.md). The original [experiment command notes](docs/archive/commands.sh) are preserved for context and include historical machine-specific paths.
 
-8. **Visualize Attention Maps**:
-    Visualize the self-attention maps of the model for a specific layer.
+## Acknowledgments and license
 
-    **Options**:
-    - `--model_path`: Path to the trained model file (default: `best_model.pth`).
-    - `--layer_num`: The layer number to visualize attention maps from (default: 2).
-    - `--output_dir`: Directory to save the attention maps (default: `.`).
+Built on [DeiT](https://github.com/facebookresearch/deit), with inspiration from [Vision Transformers Need Registers](https://arxiv.org/abs/2309.16588) and [Going Deeper with Image Transformers](https://arxiv.org/abs/2103.17239).
 
-    Example:
-    ```bash
-    python visualize_attention.py --model_path ./models/best_model.pth --layer_num 5 --output_dir ./attention_maps
-    ```
-    Check [CIFAR10 Attention Map](cifar10_attention_maps.pdf) for an example result.
-
-## Arguments
-
-- `--model_path`: Path to the trained model.
-- `--layer_num`: Layer number to visualize attention from.
-- `--output_dir`: Directory to save the visualizations.
-
-
-### Model Architecture
-
-The Vision Transformer (ViT) model used in this repository includes dynamic tokens, specifically class and register tokens. The register tokens are added at a specified layer and influence the subsequent layers.
-
-
-## `vit_register_dynamic_viz` Class
-
-The `vit_register_dynamic_viz` class extends the standard ViT model to include dynamic tokens.
-
-### Key Parameters:
-- `img_size`: Size of the input images.
-- `patch_size`: Size of the patches.
-- `num_classes`: Number of output classes.
-- `embed_dim`: Embedding dimension.
-- `depth`: Number of transformer layers.
-- `num_heads`: Number of attention heads.
-- `mlp_ratio`: MLP ratio.
-- `num_register_tokens`: Number of register tokens.
-- `cls_pos`: Layer to add the class token.
-- `reg_pos`: Layer to add the register tokens.
-
-
-## Visualization
-
-The visualization script extracts self-attention maps from the specified layer and saves them as a PDF. The class token's attention map and each register token's attention map are saved on different pages.
-
-
-## Example Output
-
-The attention maps are saved in a PDF file in the specified output directory. Each page includes the original image and the attention maps for the class and register tokens.
-
-※ Please note that the attention maps generated in this version are preliminary and may be of lower quality. We are actively working on improving the generation process to enhance the resolution and accuracy of these visualizations. Future updates will include higher-quality attention maps and additional features to better support your analysis needs.
-
-
-## Important Notes
-
-- Ensure that the layer number specified for visualization is valid and does not exceed the model's depth.
-- The visualization script will raise an error if attempting to access register tokens from a layer before they are added.
-
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request for any improvements or new features.
-
-### Steps to Contribute
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature-branch`).
-3. Commit your changes (`git commit -am 'Add new feature'`).
-4. Push to the branch (`git push origin feature-branch`).
-5. Open a pull request.
-
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
+Project license: [MIT](LICENSE). Upstream copyright and license notices remain in the source files.

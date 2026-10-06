@@ -1,11 +1,30 @@
-*.swp
-**/__pycache__/**
-imnet_resnet50_scratch/timm_temp/
-.dumbo.json
-checkpoints/
+# Python environments and caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Local datasets
+/data/
+/cifar_data/
+
+# Checkpoints and generated experiment outputs
 *.pth
-# *.pdf
-data/
-cifar_data/
-result/
-# output_dir/
+*.pt
+*.ckpt
+/checkpoints/
+/result/
+/output_dir/
+/outputs/
+/logs/
+/wandb/
+/imnet_resnet50_scratch/timm_temp/
+# Root-level plots; curated PDFs are kept under docs/examples/
+/*.pdf
+
+# Local editor and operating-system files
+.DS_Store
+*.swp
+*~
+.dumbo.json
